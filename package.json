@@ -18,15 +18,17 @@
     "daemon": "tsx scripts/daemon_runner.ts",
     "distribute": "tsx scripts/distribute.ts"
   },
+  "bin": {
+    "base-http402-extractor": "./dist/mcp/server.js"
+  },
+  "preferGlobal": true,
   "keywords": [
-    "http-402",
-    "base",
-    "viem",
-    "hono",
     "mcp",
-    "micropayments",
+    "mcp-server",
+    "http-402",
+    "base-l2",
     "usdc",
-    "autonomous-agent"
+    "web-scraper"
   ],
   "author": "Autonomous Agent",
   "license": "MIT",

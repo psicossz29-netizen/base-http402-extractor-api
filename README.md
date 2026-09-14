@@ -45,15 +45,45 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 
 ---
 
-## 🤖 Conexión como Servidor MCP en Claude Desktop
+## 🤖 Conexión como Servidor MCP (Claude Desktop & Smithery.ai)
 
-Cualquier desarrollador o agente puede integrar esta micro-API como una herramienta nativa en **Claude Desktop** editando el archivo de configuración `claude_desktop_config.json`:
+### ⚡ Integración Instantánea con NPX (Recomendado)
+Puedes ejecutar el servidor MCP directamente con `npx` sin necesidad de clonar el repositorio:
 
-### Ubicación del archivo de configuración:
+Añade este bloque en tu archivo `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "base-http402-extractor": {
+      "command": "npx",
+      "args": ["-y", "base-http402-extractor-api"]
+    }
+  }
+}
+```
+
+### 🔮 Instalación Automática con Smithery.ai
+El servidor se encuentra indexado en el registro descentralizado de [Smithery.ai](https://smithery.ai):
+
+```bash
+# Para Claude Desktop:
+npx -y @smithery/cli install base-http402-extractor-api --client claude
+
+# Para Cursor:
+npx -y @smithery/cli install base-http402-extractor-api --client cursor
+```
+
+---
+
+### 💻 Conexión Local Manual en Claude Desktop
+
+Si clonas el repositorio localmente, edita tu archivo de configuración `claude_desktop_config.json`:
+
+#### Ubicación del archivo de configuración:
 * **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 * **Windows:** `%APPDATA%\Claude\claude_desktop_config.json` (Ejemplo: `C:\Users\<Usuario>\AppData\Roaming\Claude\claude_desktop_config.json`)
 
-### Fragmento de configuración a agregar en `claude_desktop_config.json`:
+#### Fragmento de configuración manual:
 
 ```json
 {
@@ -61,7 +91,7 @@ Cualquier desarrollador o agente puede integrar esta micro-API como una herramie
     "http-402-llm-extractor": {
       "command": "node",
       "args": [
-        "C:/Users/PsicoSsz/.gemini/antigravity/worktrees/clever-rutherford/http_402_micro_api/dist/mcp/server.js"
+        "dist/mcp/server.js"
       ],
       "env": {
         "BASE_RPC_URL": "https://mainnet.base.org",
@@ -74,8 +104,6 @@ Cualquier desarrollador o agente puede integrar esta micro-API como una herramie
   }
 }
 ```
-
-> **Nota:** Si prefieres ejecutarlo en modo desarrollo con TypeScript en vivo, reemplaza `"command": "node"` por `"command": "npx"` y `"args": ["-y", "tsx", "<RUTA>/src/mcp/server.ts"]`.
 
 ### Herramientas MCP Disponibles:
 1. **`get_payment_info`**: Retorna el precio ($0.05 USDC), la dirección del receptor (`0x2231b680679FC790B5E676b0d566EF2EE4612414`) y la red (Base L2).
