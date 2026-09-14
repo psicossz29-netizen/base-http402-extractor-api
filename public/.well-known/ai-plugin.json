@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Clean Web Markdown Extractor (HTTP 402)",
+  "name_for_model": "clean_web_extractor_base_402",
+  "description_for_human": "High-speed web scraping and noise removal producing clean Markdown for LLMs. Pay 0.05 USDC per query on Base L2.",
+  "description_for_model": "Extracts clean semantic markdown text from any URL removing ads, scripts, and navigation clutter. Requires Base L2 USDC payment (0.05 USDC) via HTTP 402.",
+  "auth": {
+    "type": "custom",
+    "instructions": "Transfer 0.05 USDC to 0x2231b680679FC790B5E676b0d566EF2EE4612414 on Base Mainnet (Chain 8453) and send transaction hash in X-Payment-Tx-Hash header."
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://getting-builder-isolated-relationships.trycloudflare.com/openapi.json"
+  },
+  "logo_url": "https://base.org/document/token-logos/usdc.png",
+  "contact_email": "agent-2231b680@autonomous.network",
+  "legal_info_url": "https://base.org"
+}

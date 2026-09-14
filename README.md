@@ -1,0 +1,172 @@
+# Autonomous HTTP 402 Micro-API (Base L2)
+
+Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payment Required)** en la red **Base L2**, orientado al ecosistema de agentes de IA y desarrolladores (B2A).
+
+---
+
+## 🎯 Resumen y Parámetros Operativos
+
+* **Meta Financiera:** Acumular **$300.00 USDC** netos en la billetera de control.
+* **Modelo Económico:** Micropago directo de **$0.05 USDC** por extracción limpia de contenido web (6,000 llamadas para alcanzar la meta).
+* **Red:** Base Mainnet (Chain ID `8453`)
+* **RPC Primario:** `https://mainnet.base.org`
+* **Contrato USDC Nativo:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (6 decimales)
+* **Dirección Pública del Agente:**
+  `0x2231b680679FC790B5E676b0d566EF2EE4612414`
+* **Nivel de Autonomía:** 100% desatendido, Cero KYC, Cero custodia humana. Identidad criptográfica `secp256k1` generada localmente con `viem`.
+
+---
+
+## 🚀 Arquitectura y Capacidades
+
+1. **Middleware HTTP 402 (`src/middleware/payment402.ts`):**
+   - Intercepta solicitudes entrantes y exige la cabecera `X-Payment-Tx-Hash`.
+   - Si no se provee pago, responde con código **402** y el payload exacto de instrucciones (monto, token, receptor, cadena).
+   - Valida en tiempo real con Viem que la transacción esté confirmada en Base L2, dirigida al agente y por el monto estipulado.
+   - **Prevención de Replay Attack (Doble Gasto):** Cada hash procesado se registra de forma persistente e inmutable en `data/replay_store.json`. Reintentos con el mismo hash devuelven **409 Conflict**.
+
+2. **Servicio B2A: Clean Web-to-Markdown LLM Context Extractor (`src/services/extractor.ts`):**
+   - Descarga cualquier URL web, elimina el ruido DOM (scripts, estilos, anuncios, barras de navegación, cookies, modales).
+   - Devuelve Markdown semántico optimizado con estimación de tokens para ventanas de contexto de LLMs.
+
+3. **Dualidad de Consumo:**
+   - **API REST (Hono):**
+     - `GET /`: Overview, estado y URL pública configurada.
+     - `GET /openapi.json`: Especificación OpenAPI 3.0.3 sincronizada con `PUBLIC_URL`.
+     - `GET /api/v1/pricing`: Tarifas y datos de recepción.
+     - `GET /api/v1/stats`: Estado de ingresos y llamadas procesadas.
+     - `POST /api/v1/extract`: Extractor protegido por HTTP 402.
+   - **Servidor MCP (`src/mcp/server.ts`):**
+     - Integración directa para Cursor, Claude Desktop y orquestadores con las herramientas `get_payment_info` y `extract_clean_markdown`.
+
+4. **Vigilancia Financiera y Progreso (`src/monitor/balanceMonitor.ts`):**
+   - Monitorea el balance de USDC en Base L2 y actualiza `progress.json`.
+   - Emite informe de éxito al alcanzar los $300.00 USDC sin interrumpir el servicio.
+
+---
+
+## 🤖 Conexión como Servidor MCP en Claude Desktop
+
+Cualquier desarrollador o agente puede integrar esta micro-API como una herramienta nativa en **Claude Desktop** editando el archivo de configuración `claude_desktop_config.json`:
+
+### Ubicación del archivo de configuración:
+* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json` (Ejemplo: `C:\Users\<Usuario>\AppData\Roaming\Claude\claude_desktop_config.json`)
+
+### Fragmento de configuración a agregar en `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "http-402-llm-extractor": {
+      "command": "node",
+      "args": [
+        "C:/Users/PsicoSsz/.gemini/antigravity/worktrees/clever-rutherford/http_402_micro_api/dist/mcp/server.js"
+      ],
+      "env": {
+        "BASE_RPC_URL": "https://mainnet.base.org",
+        "BASE_CHAIN_ID": "8453",
+        "USDC_CONTRACT_ADDRESS": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "AGENT_PUBLIC_ADDRESS": "0x2231b680679FC790B5E676b0d566EF2EE4612414",
+        "SERVICE_PRICE_USDC": "0.05"
+      }
+    }
+  }
+}
+```
+
+> **Nota:** Si prefieres ejecutarlo en modo desarrollo con TypeScript en vivo, reemplaza `"command": "node"` por `"command": "npx"` y `"args": ["-y", "tsx", "<RUTA>/src/mcp/server.ts"]`.
+
+### Herramientas MCP Disponibles:
+1. **`get_payment_info`**: Retorna el precio ($0.05 USDC), la dirección del receptor (`0x2231b680679FC790B5E676b0d566EF2EE4612414`) y la red (Base L2).
+2. **`extract_clean_markdown`**: Recibe `url` y `paymentTxHash`. Verifica on-chain la transferencia y devuelve el contenido Markdown limpio.
+
+---
+
+## ☁️ Despliegue Serverless 24/7 en Cloudflare Workers
+
+Para mantener el servicio activo 24/7 sin depender de tu máquina local ni de túneles temporales, el proyecto incluye soporte nativo para **Cloudflare Workers** con runtime Edge de ultrabaja latencia:
+
+```bash
+# 1. Instalar Wrangler (si no está global) y autenticar
+npx wrangler login
+
+# 2. Desplegar el Worker a Cloudflare Edge
+npm run deploy
+```
+
+El archivo [`wrangler.jsonc`](./wrangler.jsonc) ya incluye:
+* Entrypoint serverless: `src/worker.ts`
+* Compatibilidad `nodejs_compat`
+* Variables de entorno para Base Mainnet y contrato USDC
+
+---
+
+## 🛠️ Guía Rápida de Comandos
+
+```bash
+# Generar o recargar identidad EVM en .env
+npm run generate-wallet
+
+# Ejecutar suite de pruebas de determinismo local
+npm test
+
+# Ejecutar simulador de cliente (flujo completo HTTP 402)
+npm run test:client
+
+# Compilar TypeScript
+npm run build
+
+# Iniciar servidor HTTP en vivo (puerto 3000)
+npm start
+
+# Servidor MCP (Stdio para Claude Desktop / Cursor)
+npm run mcp
+
+# Consultar progreso y balance en Base L2 (auditoría puntual)
+npm run monitor -- --once
+
+# Iniciar monitor de balance continuo (cada 15 minutos en segundo plano)
+npm run monitor
+
+# Publicar fichas y registros de herramientas B2A
+npm run register
+
+# Desplegar en Cloudflare Workers 24/7
+npm run deploy
+```
+
+---
+
+## 📡 Ejemplo de Consumo vía cURL
+
+### 1. Consulta inicial (Devuelve 402 Payment Required):
+```bash
+curl -i -X POST https://toward-asking-programs-focal.trycloudflare.com/api/v1/extract \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://en.wikipedia.org/wiki/Artificial_intelligence"}'
+```
+
+**Respuesta HTTP 402:**
+```json
+{
+  "error": "Payment Required",
+  "network": "Base",
+  "chainId": 8453,
+  "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "recipient": "0x2231b680679FC790B5E676b0d566EF2EE4612414",
+  "priceUsdc": 0.05,
+  "decimals": 6,
+  "amountUnits": "50000",
+  "instructions": "Send at least 0.05 USDC on Base L2 to 0x2231b680679FC790B5E676b0d566EF2EE4612414 and include transaction hash in 'X-Payment-Tx-Hash' header."
+}
+```
+
+### 2. Consulta con Pago Confirmado en Base L2:
+```bash
+curl -i -X POST https://toward-asking-programs-focal.trycloudflare.com/api/v1/extract \
+  -H "Content-Type: application/json" \
+  -H "X-Payment-Tx-Hash: 0xTRANSACTION_HASH_CONFIRMED_ON_BASE" \
+  -d '{"url": "https://en.wikipedia.org/wiki/Artificial_intelligence"}'
+```
+Responde **200 OK** con el Markdown estructurado listo para inyectar en el contexto del LLM.

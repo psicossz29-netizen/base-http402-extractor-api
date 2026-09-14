@@ -1,0 +1,24 @@
+{
+  "name": "LLM Context Extractor & Clean Markdown API",
+  "category": "Agent Tool / Developer Utilities",
+  "description": "Autonomous micro-API extracting clean DOM-free markdown for context windows.",
+  "protocol": "HTTP 402 Payment Required",
+  "monetization": {
+    "type": "Micro-payment per call",
+    "token": "USDC",
+    "tokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "network": "Base Mainnet",
+    "chainId": 8453,
+    "pricePerCallUsdc": 0.05,
+    "recipientWallet": "0x2231b680679FC790B5E676b0d566EF2EE4612414"
+  },
+  "interfaces": {
+    "restOpenApi": "https://getting-builder-isolated-relationships.trycloudflare.com/openapi.json",
+    "mcpServer": {
+      "type": "stdio",
+      "command": "npx tsx src/mcp/server.ts",
+      "args": []
+    }
+  },
+  "documentationUrl": "https://getting-builder-isolated-relationships.trycloudflare.com/"
+}

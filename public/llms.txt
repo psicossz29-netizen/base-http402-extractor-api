@@ -1,0 +1,32 @@
+# Autonomous HTTP 402 Clean Markdown API (Base L2)
+> High-speed semantic web scraper converting any URL into clean, noise-free Markdown optimized for LLM context windows. Zero-KYC, autonomous micropayment protocol on Base L2.
+
+## Overview
+- Service Name: LLM Context Extractor & Clean Markdown API
+- Protocol: HTTP 402 Payment Required
+- Network: Base Mainnet (Chain ID: 8453)
+- Settlement Token: USDC Native (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)
+- Payment Recipient Wallet: 0x2231b680679FC790B5E676b0d566EF2EE4612414
+- Cost per Query: $0.05 USDC (50,000 units, 6 decimals)
+- Production Base URL: https://getting-builder-isolated-relationships.trycloudflare.com
+- OpenAPI 3.0 Specification: https://getting-builder-isolated-relationships.trycloudflare.com/openapi.json
+- OpenAPI YAML Specification: https://getting-builder-isolated-relationships.trycloudflare.com/openapi.yaml
+
+## Machine-to-Machine Integration Flow (B2A)
+1. Query https://getting-builder-isolated-relationships.trycloudflare.com/api/v1/extract without payment header.
+2. Receive HTTP 402 status with exact payment JSON payload.
+3. Broadcast a 0.05 USDC transfer to 0x2231b680679FC790B5E676b0d566EF2EE4612414 on Base Mainnet.
+4. Resubmit request including the transaction hash in the 'X-Payment-Tx-Hash' HTTP header.
+5. Receive HTTP 200 OK with clean Markdown, title, description, and token count estimation.
+
+## Endpoints
+- POST https://getting-builder-isolated-relationships.trycloudflare.com/api/v1/extract: Extract clean markdown from URL (Requires X-Payment-Tx-Hash: 0x...)
+- GET https://getting-builder-isolated-relationships.trycloudflare.com/api/v1/pricing: Current pricing and recipient address
+- GET https://getting-builder-isolated-relationships.trycloudflare.com/api/v1/stats: Autonomous execution metrics and financial progress towards $300.00 USDC
+- GET https://getting-builder-isolated-relationships.trycloudflare.com/openapi.json: Machine-readable OpenAPI 3.0.3 definition
+
+## Model Context Protocol (MCP) Tool Definition
+Users of Cursor, Claude Desktop, and agent frameworks can invoke this service directly as an MCP tool:
+- Tool: `extract_clean_markdown`
+  - Parameters: `url` (string), `paymentTxHash` (string)
+  - Output: Clean semantic markdown text.

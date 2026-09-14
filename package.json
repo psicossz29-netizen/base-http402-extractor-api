@@ -1,0 +1,50 @@
+{
+  "name": "http-402-micro-api",
+  "version": "1.0.0",
+  "description": "Autonomous HTTP 402 Micro-API monetized with USDC on Base L2",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "generate-wallet": "tsx scripts/generate_wallet.ts",
+    "monitor": "tsx src/monitor/balanceMonitor.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "register": "tsx scripts/register_service.ts",
+    "test:client": "tsx scripts/test_client.ts",
+    "deploy": "wrangler deploy",
+    "daemon": "tsx scripts/daemon_runner.ts",
+    "distribute": "tsx scripts/distribute.ts"
+  },
+  "keywords": [
+    "http-402",
+    "base",
+    "viem",
+    "hono",
+    "mcp",
+    "micropayments",
+    "usdc",
+    "autonomous-agent"
+  ],
+  "author": "Autonomous Agent",
+  "license": "MIT",
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
+    "hono": "^4.13.7",
+    "turndown": "^7.2.4",
+    "viem": "^2.56.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "@types/turndown": "^5.0.6",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}

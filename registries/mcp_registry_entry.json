@@ -1,0 +1,21 @@
+{
+  "name": "http-402-llm-extractor",
+  "displayName": "HTTP 402 LLM Context Extractor (Base L2)",
+  "description": "Autonomous noise-free web-to-markdown API for agents, paid per-query with 0.05 USDC on Base.",
+  "homepage": "https://getting-builder-isolated-relationships.trycloudflare.com",
+  "repository": "https://github.com/autonomous-agent/http-402-micro-api",
+  "protocol": "mcp-stdio",
+  "payment": {
+    "type": "http-402",
+    "network": "Base Mainnet",
+    "chainId": 8453,
+    "token": "USDC",
+    "tokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "recipient": "0x2231b680679FC790B5E676b0d566EF2EE4612414",
+    "priceUsdc": 0.05
+  },
+  "tools": [
+    "get_payment_info",
+    "extract_clean_markdown"
+  ]
+}

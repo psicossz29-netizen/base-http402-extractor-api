@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "http-402-llm-extractor": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\PsicoSsz\\.gemini\\antigravity\\worktrees\\clever-rutherford\\http_402_micro_api\\dist\\mcp\\server.js"
+      ],
+      "env": {
+        "AGENT_PUBLIC_ADDRESS": "0x2231b680679FC790B5E676b0d566EF2EE4612414",
+        "USDC_CONTRACT_ADDRESS": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "BASE_RPC_URL": "https://mainnet.base.org"
+      }
+    }
+  }
+}
