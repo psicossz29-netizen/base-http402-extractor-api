@@ -239,18 +239,14 @@ paths:
   console.log('\n4️⃣  Enviando pings de indexación programática a agregadores y directorios...');
   const directoryPings: Array<{ target: string; status: string; details: string }> = [];
 
+  // Los endpoints clásicos de ping (google.com/ping, bing.com/ping) fueron oficialmente
+  // discontinuados por los motores de búsqueda (retornan 404 y 410 Gone respectivamente).
+  // La indexación moderna se realiza mediante fichas estandarizadas (llms.txt, openapi.json)
+  // y directorios nativos como Smithery.ai y catálogos curados MCP.
   const targets = [
     {
-      name: 'Common Crawl / AI Crawler Ping',
+      name: 'Common Crawl / AI Crawler Directory Index',
       url: `https://index.commoncrawl.org/collinfo.json`
-    },
-    {
-      name: 'Google Bot / Sitemap Ping',
-      url: `https://www.google.com/ping?sitemap=${encodeURIComponent(CONFIG.PUBLIC_URL + '/llms.txt')}`
-    },
-    {
-      name: 'Bing Webmaster Indexing Ping',
-      url: `https://www.bing.com/ping?sitemap=${encodeURIComponent(CONFIG.PUBLIC_URL + '/openapi.json')}`
     }
   ];
 
