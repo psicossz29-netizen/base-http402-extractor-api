@@ -90,6 +90,8 @@ function startCloudflareTunnel() {
       const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
       if (match && match[0]) {
         const publicUrl = match[0];
+        CONFIG.PUBLIC_URL = publicUrl;
+        process.env.PUBLIC_URL = publicUrl;
         logDaemon(`🌐 Túnel HTTPS activo: ${publicUrl}`);
         tunnelBackoffMs = 3000; // Reset backoff tras éxito
       }

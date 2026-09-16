@@ -13,12 +13,12 @@
     "recipientWallet": "0x2231b680679FC790B5E676b0d566EF2EE4612414"
   },
   "interfaces": {
-    "restOpenApi": "https://getting-builder-isolated-relationships.trycloudflare.com/openapi.json",
+    "restOpenApi": "https://offering-thompson-dennis-hydrogen.trycloudflare.com/openapi.json",
     "mcpServer": {
       "type": "stdio",
       "command": "npx tsx src/mcp/server.ts",
       "args": []
     }
   },
-  "documentationUrl": "https://getting-builder-isolated-relationships.trycloudflare.com/"
+  "documentationUrl": "https://offering-thompson-dennis-hydrogen.trycloudflare.com/"
 }
