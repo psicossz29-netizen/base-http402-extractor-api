@@ -1,34 +1,76 @@
 import fs from 'node:fs';
 import path from 'node:path';
 export class ReplayStore {
-    filePath;
+    filePath = null;
     memoryCache;
     // Candado atómico en memoria para eliminar Race Conditions (TOCTOU)
     inFlightHashes;
+    kv = null;
+    isWorker;
+    memoryTtlMs = 24 * 60 * 60 * 1000; // 24h TTL para modo en memoria
     isPersisting = false;
     pendingPersist = false;
-    constructor(customPath) {
-        this.filePath = customPath || path.resolve(process.cwd(), 'data', 'replay_store.json');
+    constructor(customPath, kv) {
         this.memoryCache = new Map();
         this.inFlightHashes = new Set();
-        this.ensureStorageExists();
-        this.loadFromDisk();
+        this.kv = kv || null;
+        // Detección robusta del runtime Cloudflare Worker / Serverless Edge
+        this.isWorker =
+            typeof globalThis.WebSocketPair !== 'undefined' ||
+                (typeof globalThis.caches !== 'undefined' && process.env.NODE_ENV === 'production' && !customPath);
+        if (!this.isWorker) {
+            try {
+                this.filePath = customPath || (typeof process !== 'undefined' && typeof process.cwd === 'function' ? path.resolve(process.cwd(), 'data', 'replay_store.json') : null);
+                if (this.filePath) {
+                    this.ensureStorageExists();
+                    this.loadFromDisk();
+                }
+            }
+            catch {
+                this.filePath = null;
+            }
+        }
+    }
+    setKV(kvNamespace) {
+        this.kv = kvNamespace;
+    }
+    hasKV() {
+        return Boolean(this.kv);
+    }
+    cleanExpiredEntries() {
+        if (this.kv)
+            return;
+        const now = Date.now();
+        for (const [hash, tx] of this.memoryCache.entries()) {
+            if (now - tx.timestamp > this.memoryTtlMs) {
+                this.memoryCache.delete(hash);
+            }
+        }
     }
     ensureStorageExists() {
-        const dir = path.dirname(this.filePath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+        if (!this.filePath || this.isWorker)
+            return;
+        try {
+            const dir = path.dirname(this.filePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            if (!fs.existsSync(this.filePath)) {
+                const initial = {
+                    version: '1.0.0',
+                    lastUpdated: Date.now(),
+                    transactions: {}
+                };
+                fs.writeFileSync(this.filePath, JSON.stringify(initial, null, 2), 'utf-8');
+            }
         }
-        if (!fs.existsSync(this.filePath)) {
-            const initial = {
-                version: '1.0.0',
-                lastUpdated: Date.now(),
-                transactions: {}
-            };
-            fs.writeFileSync(this.filePath, JSON.stringify(initial, null, 2), 'utf-8');
+        catch {
+            this.filePath = null;
         }
     }
     loadFromDisk() {
+        if (!this.filePath || this.isWorker)
+            return;
         try {
             const raw = fs.readFileSync(this.filePath, 'utf-8');
             const data = JSON.parse(raw);
@@ -37,13 +79,15 @@ export class ReplayStore {
                 this.memoryCache.set(hash.toLowerCase(), tx);
             }
         }
-        catch (err) {
-            console.error('Error al cargar replay_store.json:', err);
-            this.memoryCache = new Map();
+        catch {
+            // Ignorar fallos de lectura si no existe o no es accesible
         }
     }
     // Persistencia asíncrona no bloqueante con cola debounce para evitar bloquear el event loop
     async triggerAsyncPersist() {
+        const filePath = this.filePath;
+        if (!filePath || this.isWorker)
+            return;
         if (this.isPersisting) {
             this.pendingPersist = true;
             return;
@@ -59,9 +103,15 @@ export class ReplayStore {
                 lastUpdated: Date.now(),
                 transactions: recordObj
             };
-            const tempPath = `${this.filePath}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`;
+            const tempPath = `${filePath}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`;
             await fs.promises.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-            await fs.promises.rename(tempPath, this.filePath);
+            try {
+                await fs.promises.rename(tempPath, filePath);
+            }
+            catch {
+                await fs.promises.copyFile(tempPath, filePath);
+                await fs.promises.unlink(tempPath).catch(() => { });
+            }
         }
         catch (err) {
             console.error('Error al guardar asíncronamente replay_store.json:', err);
@@ -79,9 +129,31 @@ export class ReplayStore {
      * Devuelve false si el hash ya fue registrado o está siendo procesado en paralelo.
      */
     reserve(txHash) {
+        this.cleanExpiredEntries();
         const normalized = txHash.toLowerCase();
         if (this.memoryCache.has(normalized) || this.inFlightHashes.has(normalized)) {
             return false;
+        }
+        this.inFlightHashes.add(normalized);
+        return true;
+    }
+    async reserveAsync(txHash) {
+        this.cleanExpiredEntries();
+        const normalized = txHash.toLowerCase();
+        if (this.memoryCache.has(normalized) || this.inFlightHashes.has(normalized)) {
+            return false;
+        }
+        if (this.kv) {
+            try {
+                const existing = await this.kv.get(normalized, 'json');
+                if (existing) {
+                    this.memoryCache.set(normalized, existing);
+                    return false;
+                }
+            }
+            catch (err) {
+                console.warn('[ReplayStore] Error consultando KV en reserveAsync:', err);
+            }
         }
         this.inFlightHashes.add(normalized);
         return true;
@@ -93,20 +165,68 @@ export class ReplayStore {
         this.inFlightHashes.delete(txHash.toLowerCase());
     }
     has(txHash) {
+        this.cleanExpiredEntries();
         const normalized = txHash.toLowerCase();
         return this.memoryCache.has(normalized) || this.inFlightHashes.has(normalized);
+    }
+    async hasAsync(txHash) {
+        if (this.has(txHash))
+            return true;
+        if (this.kv) {
+            try {
+                const val = await this.kv.get(txHash.toLowerCase(), 'json');
+                if (val) {
+                    this.memoryCache.set(txHash.toLowerCase(), val);
+                    return true;
+                }
+            }
+            catch (err) {
+                console.warn('[ReplayStore] Error consultando KV en hasAsync:', err);
+            }
+        }
+        return false;
     }
     get(txHash) {
         return this.memoryCache.get(txHash.toLowerCase());
     }
+    async getAsync(txHash) {
+        const cached = this.get(txHash);
+        if (cached)
+            return cached;
+        if (this.kv) {
+            try {
+                const val = await this.kv.get(txHash.toLowerCase(), 'json');
+                if (val) {
+                    this.memoryCache.set(txHash.toLowerCase(), val);
+                    return val;
+                }
+            }
+            catch (err) {
+                console.warn('[ReplayStore] Error consultando KV en getAsync:', err);
+            }
+        }
+        return undefined;
+    }
     record(tx) {
         const normalizedHash = tx.txHash.toLowerCase();
         this.inFlightHashes.delete(normalizedHash);
-        this.memoryCache.set(normalizedHash, {
+        const recordData = {
             ...tx,
             txHash: normalizedHash
-        });
-        void this.triggerAsyncPersist();
+        };
+        this.memoryCache.set(normalizedHash, recordData);
+        // Si hay KV binding disponible, persistir en Cloudflare KV
+        if (this.kv) {
+            try {
+                void this.kv.put(normalizedHash, JSON.stringify(recordData));
+            }
+            catch (err) {
+                console.error('[ReplayStore] Error persistiendo en Cloudflare KV:', err);
+            }
+        }
+        if (this.filePath) {
+            void this.triggerAsyncPersist();
+        }
     }
     count() {
         return this.memoryCache.size;
@@ -117,7 +237,9 @@ export class ReplayStore {
     clear() {
         this.memoryCache.clear();
         this.inFlightHashes.clear();
-        void this.triggerAsyncPersist();
+        if (this.filePath) {
+            void this.triggerAsyncPersist();
+        }
     }
 }
 // Instancia singleton por defecto

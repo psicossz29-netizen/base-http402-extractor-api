@@ -11,8 +11,12 @@ validateConfig();
 
 const app = new Hono();
 
-// Middleware de CORS simple para clientes web y bots
+// Middleware de CORS simple para clientes web, bots y sincronización de Cloudflare Workers
 app.use('*', async (c, next) => {
+  if (c.env) {
+    if ((c.env as any).PUBLIC_URL) CONFIG.PUBLIC_URL = (c.env as any).PUBLIC_URL;
+    if ((c.env as any).AGENT_PUBLIC_ADDRESS) CONFIG.AGENT_PUBLIC_ADDRESS = (c.env as any).AGENT_PUBLIC_ADDRESS;
+  }
   c.header('Access-Control-Allow-Origin', '*');
   c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   c.header('Access-Control-Allow-Headers', 'Content-Type, X-Payment-Tx-Hash');
@@ -60,21 +64,29 @@ app.get('/', (c) => {
 
 // Ficha de contexto para rastreadores LLM (llms.txt)
 app.get('/llms.txt', (c) => {
-  const filePath = path.resolve(process.cwd(), 'public', 'llms.txt');
-  if (fs.existsSync(filePath)) {
-    c.header('Content-Type', 'text/plain; charset=utf-8');
-    return c.text(fs.readFileSync(filePath, 'utf-8'));
-  }
+  try {
+    if (typeof process !== 'undefined' && typeof process.cwd === 'function') {
+      const filePath = path.resolve(process.cwd(), 'public', 'llms.txt');
+      if (fs.existsSync(filePath)) {
+        c.header('Content-Type', 'text/plain; charset=utf-8');
+        return c.text(fs.readFileSync(filePath, 'utf-8'));
+      }
+    }
+  } catch {}
   return c.text(`# Autonomous HTTP 402 Clean Markdown API\nCost: 0.05 USDC on Base L2\nEndpoint: ${CONFIG.PUBLIC_URL}/api/v1/extract\n`, 200);
 });
 
 // Especificación OpenAPI 3.0 en formato YAML
 app.get('/openapi.yaml', (c) => {
-  const filePath = path.resolve(process.cwd(), 'public', 'openapi.yaml');
-  if (fs.existsSync(filePath)) {
-    c.header('Content-Type', 'text/yaml; charset=utf-8');
-    return c.body(fs.readFileSync(filePath, 'utf-8'));
-  }
+  try {
+    if (typeof process !== 'undefined' && typeof process.cwd === 'function') {
+      const filePath = path.resolve(process.cwd(), 'public', 'openapi.yaml');
+      if (fs.existsSync(filePath)) {
+        c.header('Content-Type', 'text/yaml; charset=utf-8');
+        return c.body(fs.readFileSync(filePath, 'utf-8'));
+      }
+    }
+  } catch {}
   return c.text('openapi: 3.0.3\n', 200);
 });
 
@@ -267,20 +279,23 @@ app.post('/api/v1/extract', paymentRequiredMiddleware(), async (c) => {
   }
 });
 
-// Exportar app para tests y servidor
+// Exportar app para tests y runtime de Workers
 export { app };
+export default app;
 
-// Manejadores globales para evitar caída del proceso ante errores inesperados
-process.on('uncaughtException', (err) => {
-  console.error('[CRITICAL] Excepción no capturada en Servidor HTTP:', err);
-});
+// Manejadores globales para evitar caída del proceso ante errores inesperados (Node.js)
+if (typeof process !== 'undefined' && typeof process.on === 'function') {
+  process.on('uncaughtException', (err) => {
+    console.error('[CRITICAL] Excepción no capturada en Servidor HTTP:', err);
+  });
 
-process.on('unhandledRejection', (reason) => {
-  console.error('[CRITICAL] Rechazo no controlado en Servidor HTTP:', reason);
-});
+  process.on('unhandledRejection', (reason) => {
+    console.error('[CRITICAL] Rechazo no controlado en Servidor HTTP:', reason);
+  });
+}
 
 // Iniciar servidor HTTP si se ejecuta directamente como script principal
-const isDirectRun = process.argv[1] && (
+const isDirectRun = typeof process !== 'undefined' && process.argv && process.argv[1] && (
   process.argv[1].replace(/\\/g, '/').endsWith('/src/index.ts') ||
   process.argv[1].replace(/\\/g, '/').endsWith('/dist/index.js')
 );

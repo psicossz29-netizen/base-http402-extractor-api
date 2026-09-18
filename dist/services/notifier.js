@@ -2,34 +2,54 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CONFIG } from '../config.js';
 export class NotifierService {
-    logPath;
-    daemonLogPath;
+    logPath = null;
+    daemonLogPath = null;
     constructor() {
-        const dataDir = path.resolve(process.cwd(), 'data');
-        if (!fs.existsSync(dataDir)) {
-            fs.mkdirSync(dataDir, { recursive: true });
+        const isWorker = typeof globalThis.WebSocketPair !== 'undefined' ||
+            (typeof globalThis.caches !== 'undefined' && process.env.NODE_ENV === 'production');
+        if (!isWorker) {
+            try {
+                const dataDir = path.resolve(process.cwd(), 'data');
+                if (!fs.existsSync(dataDir)) {
+                    fs.mkdirSync(dataDir, { recursive: true });
+                }
+                this.logPath = path.resolve(dataDir, 'transactions.log');
+                this.daemonLogPath = path.resolve(dataDir, 'daemon.log');
+            }
+            catch {
+                this.logPath = null;
+                this.daemonLogPath = null;
+            }
         }
-        this.logPath = path.resolve(dataDir, 'transactions.log');
-        this.daemonLogPath = path.resolve(dataDir, 'daemon.log');
     }
     logToDaemon(message) {
         const timestamp = new Date().toISOString();
         const entry = `[${timestamp}] ${message}\n`;
-        try {
-            fs.appendFileSync(this.daemonLogPath, entry, 'utf-8');
+        if (this.daemonLogPath) {
+            try {
+                fs.appendFileSync(this.daemonLogPath, entry, 'utf-8');
+            }
+            catch {
+                console.log(`[DAEMON] ${message}`);
+            }
         }
-        catch {
-            // Ignorar fallos de escritura en log para preservar resiliencia
+        else {
+            console.log(`[DAEMON] ${message}`);
         }
     }
     logTransaction(event) {
         const timestamp = new Date().toISOString();
         const entry = `[${timestamp}] TX_CONFIRMED hash=${event.txHash} sender=${event.sender || 'unknown'} amount=${event.amountUsdc.toFixed(2)} USDC endpoint=${event.endpoint} totalCalls=${event.totalCallsProcessed} grossRevenue=${event.grossRevenueUsdc.toFixed(2)} USDC\n`;
-        try {
-            fs.appendFileSync(this.logPath, entry, 'utf-8');
+        if (this.logPath) {
+            try {
+                fs.appendFileSync(this.logPath, entry, 'utf-8');
+            }
+            catch (err) {
+                this.logToDaemon(`Error al escribir en transactions.log: ${err.message}`);
+            }
         }
-        catch (err) {
-            this.logToDaemon(`Error al escribir en transactions.log: ${err.message}`);
+        else {
+            console.log(`[TX_CONFIRMED] hash=${event.txHash} amount=${event.amountUsdc.toFixed(2)} USDC totalCalls=${event.totalCallsProcessed}`);
         }
     }
     async sendWebhook(payload) {

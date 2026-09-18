@@ -62,9 +62,14 @@ export function paymentRequiredMiddleware(options = {}) {
             }, 400);
         }
         const normalizedHash = paymentTxHash.toLowerCase();
+        // Inyectar binding KV si estamos en Cloudflare Workers
+        if (c.env?.REPLAY_STORE && !replayStore.hasKV()) {
+            replayStore.setKV(c.env.REPLAY_STORE);
+        }
         // 3. Reserva Atómica Anti-Replay (Elimina Race Conditions / Doble Gasto Simultáneo)
-        if (!replayStore.reserve(normalizedHash)) {
-            const existing = replayStore.get(normalizedHash);
+        const isAvailable = await replayStore.reserveAsync(normalizedHash);
+        if (!isAvailable) {
+            const existing = await replayStore.getAsync(normalizedHash);
             return c.json({
                 error: 'Transaction Already Processed',
                 message: 'Replay attack prevention: This transaction hash has already been redeemed or is currently in flight.',

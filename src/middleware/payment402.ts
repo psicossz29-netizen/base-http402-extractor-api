@@ -94,9 +94,15 @@ export function paymentRequiredMiddleware(options: PaymentOptions = {}) {
 
     const normalizedHash = paymentTxHash.toLowerCase() as `0x${string}`;
 
+    // Inyectar binding KV si estamos en Cloudflare Workers
+    if ((c.env as any)?.REPLAY_STORE && !replayStore.hasKV()) {
+      replayStore.setKV((c.env as any).REPLAY_STORE);
+    }
+
     // 3. Reserva Atómica Anti-Replay (Elimina Race Conditions / Doble Gasto Simultáneo)
-    if (!replayStore.reserve(normalizedHash)) {
-      const existing = replayStore.get(normalizedHash);
+    const isAvailable = await replayStore.reserveAsync(normalizedHash);
+    if (!isAvailable) {
+      const existing = await replayStore.getAsync(normalizedHash);
       return c.json(
         {
           error: 'Transaction Already Processed',

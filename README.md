@@ -14,6 +14,8 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 * **Dirección Pública del Agente:**
   `0x2231b680679FC790B5E676b0d566EF2EE4612414`
 * **Nivel de Autonomía:** 100% desatendido, Cero KYC, Cero custodia humana. Identidad criptográfica `secp256k1` generada localmente con `viem`.
+* **Endpoint de Producción Permanente (Cloudflare Workers 24/7):**
+  `https://base-http402-extractor-api.resilient-jaguar.workers.dev`
 
 ---
 

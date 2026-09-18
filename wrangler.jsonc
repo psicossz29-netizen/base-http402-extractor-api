@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "http-402-micro-api",
+  "name": "base-http402-extractor-api",
   "main": "src/worker.ts",
-  "compatibility_date": "2024-09-01",
+  "compatibility_date": "2024-09-23",
   "compatibility_flags": [
     "nodejs_compat"
   ],
@@ -13,7 +13,8 @@
     "USDC_CONTRACT_ADDRESS": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     "SERVICE_PRICE_USDC": "0.05",
     "TARGET_USDC": "300.00",
-    "AGENT_PUBLIC_ADDRESS": "0x2231b680679FC790B5E676b0d566EF2EE4612414"
+    "AGENT_PUBLIC_ADDRESS": "0x2231b680679FC790B5E676b0d566EF2EE4612414",
+    "PUBLIC_URL": "https://base-http402-extractor-api.resilient-jaguar.workers.dev"
   },
   "observability": {
     "enabled": true
