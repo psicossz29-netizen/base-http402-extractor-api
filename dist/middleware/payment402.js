@@ -6,8 +6,10 @@ import { notifier } from '../services/notifier.js';
 export const TRANSFER_EVENT_ABI = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)');
 export const DEFAULT_BASE_RPCS = [
     CONFIG.BASE_RPC_URL,
-    'https://base.llamarpc.com',
+    'https://base.drpc.org',
     'https://base-rpc.publicnode.com',
+    'https://gateway.tenderly.co/public/base',
+    'https://developer-access-mainnet.base.org',
     'https://1rpc.io/base'
 ];
 // Cliente Viem con Pool Redundante de RPCs (Failover y Auto-Reintento)
@@ -34,11 +36,16 @@ export function paymentRequiredMiddleware(options = {}) {
         const paymentTxHash = c.req.header('X-Payment-Tx-Hash')?.trim();
         // 1. Si no existe la cabecera X-Payment-Tx-Hash -> Responder HTTP 402
         if (!paymentTxHash) {
+            c.header('WWW-Authenticate', `MicroPayment realm="Base L2", token="USDC", amount="${priceUsdc}", recipient="${recipient}"`);
             return c.json({
                 error: 'Payment Required',
+                protocol: 'HTTP 402',
+                paymentHeader: 'X-Payment-Tx-Hash',
                 network: 'Base',
                 chainId,
                 token: tokenAddress,
+                assetSymbol: 'USDC',
+                tokenStandard: 'ERC-20',
                 recipient,
                 priceUsdc,
                 decimals,

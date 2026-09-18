@@ -11,8 +11,10 @@ export const TRANSFER_EVENT_ABI = parseAbiItem(
 
 export const DEFAULT_BASE_RPCS = [
   CONFIG.BASE_RPC_URL,
-  'https://base.llamarpc.com',
+  'https://base.drpc.org',
   'https://base-rpc.publicnode.com',
+  'https://gateway.tenderly.co/public/base',
+  'https://developer-access-mainnet.base.org',
   'https://1rpc.io/base'
 ];
 
@@ -57,12 +59,17 @@ export function paymentRequiredMiddleware(options: PaymentOptions = {}) {
 
     // 1. Si no existe la cabecera X-Payment-Tx-Hash -> Responder HTTP 402
     if (!paymentTxHash) {
+      c.header('WWW-Authenticate', `MicroPayment realm="Base L2", token="USDC", amount="${priceUsdc}", recipient="${recipient}"`);
       return c.json(
         {
           error: 'Payment Required',
+          protocol: 'HTTP 402',
+          paymentHeader: 'X-Payment-Tx-Hash',
           network: 'Base',
           chainId,
           token: tokenAddress,
+          assetSymbol: 'USDC',
+          tokenStandard: 'ERC-20',
           recipient,
           priceUsdc,
           decimals,

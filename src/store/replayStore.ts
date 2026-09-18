@@ -82,7 +82,9 @@ export class ReplayStore {
         transactions: recordObj
       };
 
-      await fs.promises.writeFile(this.filePath, JSON.stringify(data, null, 2), 'utf-8');
+      const tempPath = `${this.filePath}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`;
+      await fs.promises.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf-8');
+      await fs.promises.rename(tempPath, this.filePath);
     } catch (err) {
       console.error('Error al guardar asíncronamente replay_store.json:', err);
     } finally {
