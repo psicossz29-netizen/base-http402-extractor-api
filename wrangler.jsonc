@@ -14,7 +14,7 @@
     "SERVICE_PRICE_USDC": "0.05",
     "TARGET_USDC": "300.00",
     "AGENT_PUBLIC_ADDRESS": "0x2231b680679FC790B5E676b0d566EF2EE4612414",
-    "PUBLIC_URL": "https://base-http402-extractor-api.resilient-jaguar.workers.dev"
+    "PUBLIC_URL": "https://base-http402-extractor-api.zippy-license.workers.dev"
   },
   "observability": {
     "enabled": true

@@ -19,8 +19,8 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 * **Contrato USDC Nativo:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (6 decimales)
 * **Dirección Pública del Agente:**
   `0x2231b680679FC790B5E676b0d566EF2EE4612414`
-* **Playground Web Interactivo:** `https://handy-spas-authority-yard.trycloudflare.com/playground`
-* **Endpoint de Producción Activo:** `https://handy-spas-authority-yard.trycloudflare.com`
+* **Playground Web Interactivo:** `https://base-http402-extractor-api.zippy-license.workers.dev/playground`
+* **Endpoint de Producción Activo:** `https://base-http402-extractor-api.zippy-license.workers.dev`
 
 ---
 
@@ -67,16 +67,19 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 
 ---
 
-## 🤖 Conexión como Servidor MCP (Claude Desktop & Smithery.ai)
+## 🤖 Conexión como Servidor MCP (Cursor, Claude Desktop, Windsurf & Smithery)
 
-### ⚡ Integración Instantánea con NPX (Recomendado)
-Puedes ejecutar el servidor MCP directamente con `npx` sin necesidad de clonar el repositorio:
+El microservicio expone un servidor **Model Context Protocol (MCP)** estándar vía Stdio (`base-http402-extractor-api`), permitiendo a asistentes de código y agentes LLM invocar la extracción semántica de páginas web y resolver el pago HTTP 402 directamente desde su interfaz de chat.
 
-Añade este bloque en tu archivo `claude_desktop_config.json`:
+### ⚡ 1-Click Config Snippets
+
+#### 1. Cursor IDE
+Crea o edita `.cursor/mcp.json` en la raíz de tu proyecto o añádelo en **Cursor Settings → Features → MCP Servers**:
+
 ```json
 {
   "mcpServers": {
-    "base-http402-extractor": {
+    "base-http402-extractor-api": {
       "command": "npx",
       "args": ["-y", "base-http402-extractor-api"]
     }
@@ -84,8 +87,40 @@ Añade este bloque en tu archivo `claude_desktop_config.json`:
 }
 ```
 
-### 🔮 Instalación Automática con Smithery.ai
-El servidor se encuentra indexado en el registro descentralizado de [Smithery.ai](https://smithery.ai):
+#### 2. Claude Desktop
+Edita tu archivo de configuración `claude_desktop_config.json`:
+* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "base-http402-extractor-api": {
+      "command": "npx",
+      "args": ["-y", "base-http402-extractor-api"]
+    }
+  }
+}
+```
+
+#### 3. Windsurf (Codeium)
+Añade el bloque de configuración a `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "base-http402-extractor-api": {
+      "command": "npx",
+      "args": ["-y", "base-http402-extractor-api"]
+    }
+  }
+}
+```
+
+---
+
+### 🔮 Instalación Automática vía Smithery.ai
+El servidor cuenta con especificación estandarizada en `smithery.yaml` e indexación directa:
 
 ```bash
 # Para Claude Desktop:
@@ -93,19 +128,15 @@ npx -y @smithery/cli install base-http402-extractor-api --client claude
 
 # Para Cursor:
 npx -y @smithery/cli install base-http402-extractor-api --client cursor
+
+# Para Windsurf:
+npx -y @smithery/cli install base-http402-extractor-api --client windsurf
 ```
 
 ---
 
-### 💻 Conexión Local Manual en Claude Desktop
-
-Si clonas el repositorio localmente, edita tu archivo de configuración `claude_desktop_config.json`:
-
-#### Ubicación del archivo de configuración:
-* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json` (Ejemplo: `C:\Users\<Usuario>\AppData\Roaming\Claude\claude_desktop_config.json`)
-
-#### Fragmento de configuración manual:
+### 💻 Conexión Local Avanzada (Desde Repositorio Clonado)
+Si estás desarrollando localmente o ejecutando el código fuente:
 
 ```json
 {
@@ -127,9 +158,9 @@ Si clonas el repositorio localmente, edita tu archivo de configuración `claude_
 }
 ```
 
-### Herramientas MCP Disponibles:
+### 🛠️ Herramientas MCP Disponibles:
 1. **`get_payment_info`**: Retorna el precio ($0.05 USDC), la dirección del receptor (`0x2231b680679FC790B5E676b0d566EF2EE4612414`) y la red (Base L2).
-2. **`extract_clean_markdown`**: Recibe `url` y `paymentTxHash`. Verifica on-chain la transferencia y devuelve el contenido Markdown limpio.
+2. **`extract_clean_markdown`**: Recibe `url` y opcionalmente `paymentTxHash` o `apiKey`. Verifica on-chain la transferencia o crédito y devuelve el contenido Markdown limpio.
 
 ---
 
@@ -192,7 +223,7 @@ npm run deploy
 
 ### 1. Consulta inicial (Devuelve 402 Payment Required):
 ```bash
-curl -i -X POST https://toward-asking-programs-focal.trycloudflare.com/api/v1/extract \
+curl -i -X POST https://base-http402-extractor-api.zippy-license.workers.dev/api/v1/extract \
   -H "Content-Type: application/json" \
   -d '{"url": "https://en.wikipedia.org/wiki/Artificial_intelligence"}'
 ```
@@ -214,7 +245,7 @@ curl -i -X POST https://toward-asking-programs-focal.trycloudflare.com/api/v1/ex
 
 ### 2. Consulta con Pago Confirmado en Base L2:
 ```bash
-curl -i -X POST https://toward-asking-programs-focal.trycloudflare.com/api/v1/extract \
+curl -i -X POST https://base-http402-extractor-api.zippy-license.workers.dev/api/v1/extract \
   -H "Content-Type: application/json" \
   -H "X-Payment-Tx-Hash: 0xTRANSACTION_HASH_CONFIRMED_ON_BASE" \
   -d '{"url": "https://en.wikipedia.org/wiki/Artificial_intelligence"}'

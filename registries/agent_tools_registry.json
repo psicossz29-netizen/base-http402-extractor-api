@@ -13,12 +13,12 @@
     "recipientWallet": "0x2231b680679FC790B5E676b0d566EF2EE4612414"
   },
   "interfaces": {
-    "restOpenApi": "https://era-asp-bring-southern.trycloudflare.com/openapi.json",
+    "restOpenApi": "https://base-http402-extractor-api.zippy-license.workers.dev/openapi.json",
     "mcpServer": {
       "type": "stdio",
       "command": "npx tsx src/mcp/server.ts",
       "args": []
     }
   },
-  "documentationUrl": "https://era-asp-bring-southern.trycloudflare.com/"
+  "documentationUrl": "https://base-http402-extractor-api.zippy-license.workers.dev/"
 }

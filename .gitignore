@@ -1,5 +1,6 @@
 .env
 node_modules/
-data/
+data/*
+!data/marketing_brief.json
 *.log
 .DS_Store

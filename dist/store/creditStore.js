@@ -1,16 +1,34 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+function generateRandomApiKey() {
+    try {
+        if (typeof crypto !== 'undefined') {
+            if (typeof crypto.randomBytes === 'function') {
+                return `bk_live_${crypto.randomBytes(16).toString('hex')}`;
+            }
+            if (typeof crypto.getRandomValues === 'function') {
+                const buf = new Uint8Array(16);
+                crypto.getRandomValues(buf);
+                return `bk_live_${Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+            }
+        }
+    }
+    catch { }
+    return `bk_live_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+}
 export class CreditStore {
     filePath = null;
     accounts;
     freeUsageMap;
+    kv = null;
     isWorker;
     isPersisting = false;
     pendingPersist = false;
-    constructor(customPath) {
+    constructor(customPath, kv) {
         this.accounts = new Map();
         this.freeUsageMap = new Map();
+        this.kv = kv || null;
         this.isWorker =
             typeof globalThis.WebSocketPair !== 'undefined' ||
                 (typeof globalThis.caches !== 'undefined' && process.env.NODE_ENV === 'production' && !customPath);
@@ -26,6 +44,12 @@ export class CreditStore {
                 this.filePath = null;
             }
         }
+    }
+    setKV(kvNamespace) {
+        this.kv = kvNamespace;
+    }
+    hasKV() {
+        return Boolean(this.kv);
     }
     ensureStorageExists() {
         if (!this.filePath || this.isWorker)
@@ -117,8 +141,7 @@ export class CreditStore {
         else if (amountUsdc >= 5) {
             credits += 10; // Bono 10%
         }
-        const randomSuffix = crypto.randomBytes(16).toString('hex');
-        const apiKey = `bk_live_${randomSuffix}`;
+        const apiKey = generateRandomApiKey();
         const account = {
             apiKey,
             depositTxHash: txHash.toLowerCase(),
@@ -128,6 +151,9 @@ export class CreditStore {
             lastUsedAt: Date.now()
         };
         this.accounts.set(apiKey, account);
+        if (this.kv) {
+            void this.kv.put(`credit:${apiKey}`, JSON.stringify(account)).catch(() => { });
+        }
         void this.triggerAsyncPersist();
         return { apiKey, credits };
     }
@@ -141,6 +167,9 @@ export class CreditStore {
         }
         account.remainingCredits -= 1;
         account.lastUsedAt = Date.now();
+        if (this.kv) {
+            void this.kv.put(`credit:${apiKey}`, JSON.stringify(account)).catch(() => { });
+        }
         void this.triggerAsyncPersist();
         return { valid: true, remainingCredits: account.remainingCredits };
     }

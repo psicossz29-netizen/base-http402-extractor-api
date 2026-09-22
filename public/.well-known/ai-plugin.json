@@ -10,7 +10,7 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://getting-builder-isolated-relationships.trycloudflare.com/openapi.json"
+    "url": "https://base-http402-extractor-api.zippy-license.workers.dev/openapi.json"
   },
   "logo_url": "https://base.org/document/token-logos/usdc.png",
   "contact_email": "agent-2231b680@autonomous.network",

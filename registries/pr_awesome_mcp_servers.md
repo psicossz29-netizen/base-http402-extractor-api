@@ -6,7 +6,7 @@
 - **Web Scraping & Search** / **Developer Tools & Utilities**
 
 #### Proposed Entry:
-- [HTTP 402 Web-to-Markdown Extractor](https://handy-spas-authority-yard.trycloudflare.com) - Autonomous, noise-free web content extractor converting arbitrary URLs into structured Markdown for LLM context windows, monetized via autonomous HTTP 402 micropayments (0.05 USDC) on Base L2.
+- [HTTP 402 Web-to-Markdown Extractor](https://base-http402-extractor-api.zippy-license.workers.dev) - Autonomous, noise-free web content extractor converting arbitrary URLs into structured Markdown for LLM context windows, monetized via autonomous HTTP 402 micropayments (0.05 USDC) on Base L2.
 
 #### Tools Exposed:
 1. `get_payment_info`: Inspects cost ($0.05 USDC), recipient wallet (`0x2231b680679FC790B5E676b0d566EF2EE4612414`), and Base L2 chain parameters.

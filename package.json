@@ -19,7 +19,8 @@
     "distribute": "tsx scripts/distribute.ts"
   },
   "bin": {
-    "base-http402-extractor": "./dist/mcp/server.js"
+    "base-http402-extractor": "./dist/mcp/server.js",
+    "base-http402-extractor-api": "./dist/mcp/server.js"
   },
   "preferGlobal": true,
   "keywords": [

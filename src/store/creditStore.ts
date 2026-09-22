@@ -11,23 +11,47 @@ export interface CreditAccount {
   lastUsedAt: number;
 }
 
+export interface KVNamespaceLike {
+  get(key: string, type?: 'text' | 'json'): Promise<any>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+
 interface CreditStoreData {
   version: string;
   lastUpdated: number;
   accounts: Record<string, CreditAccount>;
 }
 
+function generateRandomApiKey(): string {
+  try {
+    if (typeof crypto !== 'undefined') {
+      if (typeof (crypto as any).randomBytes === 'function') {
+        return `bk_live_${(crypto as any).randomBytes(16).toString('hex')}`;
+      }
+      if (typeof crypto.getRandomValues === 'function') {
+        const buf = new Uint8Array(16);
+        crypto.getRandomValues(buf);
+        return `bk_live_${Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+      }
+    }
+  } catch {}
+  return `bk_live_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export class CreditStore {
   private filePath: string | null = null;
   private accounts: Map<string, CreditAccount>;
   private freeUsageMap: Map<string, { count: number; date: string }>;
+  private kv: KVNamespaceLike | null = null;
   private isWorker: boolean;
   private isPersisting: boolean = false;
   private pendingPersist: boolean = false;
 
-  constructor(customPath?: string) {
+  constructor(customPath?: string, kv?: KVNamespaceLike) {
     this.accounts = new Map();
     this.freeUsageMap = new Map();
+    this.kv = kv || null;
 
     this.isWorker =
       typeof (globalThis as any).WebSocketPair !== 'undefined' ||
@@ -44,6 +68,14 @@ export class CreditStore {
         this.filePath = null;
       }
     }
+  }
+
+  public setKV(kvNamespace: KVNamespaceLike): void {
+    this.kv = kvNamespace;
+  }
+
+  public hasKV(): boolean {
+    return Boolean(this.kv);
   }
 
   private ensureStorageExists(): void {
@@ -134,8 +166,7 @@ export class CreditStore {
       credits += 10; // Bono 10%
     }
 
-    const randomSuffix = crypto.randomBytes(16).toString('hex');
-    const apiKey = `bk_live_${randomSuffix}`;
+    const apiKey = generateRandomApiKey();
 
     const account: CreditAccount = {
       apiKey,
@@ -147,6 +178,11 @@ export class CreditStore {
     };
 
     this.accounts.set(apiKey, account);
+
+    if (this.kv) {
+      void this.kv.put(`credit:${apiKey}`, JSON.stringify(account)).catch(() => {});
+    }
+
     void this.triggerAsyncPersist();
 
     return { apiKey, credits };
@@ -163,6 +199,11 @@ export class CreditStore {
 
     account.remainingCredits -= 1;
     account.lastUsedAt = Date.now();
+
+    if (this.kv) {
+      void this.kv.put(`credit:${apiKey}`, JSON.stringify(account)).catch(() => {});
+    }
+
     void this.triggerAsyncPersist();
 
     return { valid: true, remainingCredits: account.remainingCredits };

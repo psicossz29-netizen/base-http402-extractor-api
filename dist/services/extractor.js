@@ -62,15 +62,19 @@ export function isPrivateOrReservedIp(ip) {
 export class WebExtractorService {
     turndown;
     constructor() {
-        this.turndown = new TurndownService({
-            headingStyle: 'atx',
-            hr: '---',
-            bulletListMarker: '-',
-            codeBlockStyle: 'fenced',
-            emDelimiter: '*'
-        });
-        // Descartar elementos que no aportan contenido de texto
-        this.turndown.remove(['script', 'style', 'noscript', 'iframe', 'canvas']);
+        try {
+            this.turndown = new TurndownService({
+                headingStyle: 'atx',
+                hr: '---',
+                bulletListMarker: '-',
+                codeBlockStyle: 'fenced',
+                emDelimiter: '*'
+            });
+            this.turndown.remove(['script', 'style', 'noscript', 'iframe', 'canvas']);
+        }
+        catch {
+            this.turndown = null;
+        }
     }
     // Validación estricta anti-SSRF de la URL antes de despachar tráfico
     async validateUrlSecurity(parsedUrl) {
@@ -223,8 +227,22 @@ export class WebExtractorService {
         if (!mainContentHtml) {
             mainContentHtml = $('body').html() || $.html();
         }
-        // Convertir a Markdown limpio
-        let markdown = this.turndown.turndown(mainContentHtml);
+        // Convertir a Markdown limpio con dual-engine (Turndown + Cheerio fallback para Edge/Workers)
+        let markdown = '';
+        if (this.turndown) {
+            try {
+                markdown = this.turndown.turndown(mainContentHtml);
+            }
+            catch {
+                markdown = '';
+            }
+        }
+        // Si Turndown falló o carece de DOM/document en Cloudflare Workers, usar serializador nativo Cheerio
+        if (!markdown) {
+            const $content = cheerio.load(mainContentHtml);
+            const rootNode = $content('body')[0] || $content.root()[0];
+            markdown = cheerioToMarkdown($content, rootNode);
+        }
         // Post-procesamiento: normalizar saltos de línea repetidos y espacios
         markdown = markdown
             .replace(/\n{3,}/g, '\n\n')
@@ -243,6 +261,82 @@ export class WebExtractorService {
             estimatedTokens,
             extractedAt: new Date().toISOString()
         };
+    }
+}
+// Serializador nativo de Cheerio AST a Markdown (sin dependencias DOM de navegador)
+function cheerioToMarkdown($, node) {
+    if (!node)
+        return '';
+    if (node.type === 'text') {
+        return node.data || '';
+    }
+    if (node.type !== 'tag') {
+        return '';
+    }
+    const tag = (node.name || '').toLowerCase();
+    const childrenMd = (node.children || [])
+        .map((child) => cheerioToMarkdown($, child))
+        .join('');
+    switch (tag) {
+        case 'h1':
+            return `\n\n# ${childrenMd.trim()}\n\n`;
+        case 'h2':
+            return `\n\n## ${childrenMd.trim()}\n\n`;
+        case 'h3':
+            return `\n\n### ${childrenMd.trim()}\n\n`;
+        case 'h4':
+            return `\n\n#### ${childrenMd.trim()}\n\n`;
+        case 'h5':
+            return `\n\n##### ${childrenMd.trim()}\n\n`;
+        case 'h6':
+            return `\n\n###### ${childrenMd.trim()}\n\n`;
+        case 'p':
+            return `\n\n${childrenMd.trim()}\n\n`;
+        case 'br':
+            return '\n';
+        case 'hr':
+            return '\n\n---\n\n';
+        case 'strong':
+        case 'b':
+            return `**${childrenMd.trim()}**`;
+        case 'em':
+        case 'i':
+            return `*${childrenMd.trim()}*`;
+        case 'code':
+            return `\`${childrenMd}\``;
+        case 'pre': {
+            const code = $(node).text().trim();
+            return `\n\n\`\`\`\n${code}\n\`\`\`\n\n`;
+        }
+        case 'blockquote':
+            return `\n\n> ${childrenMd.trim().replace(/\n/g, '\n> ')}\n\n`;
+        case 'a': {
+            const href = node.attribs?.href || '';
+            const text = childrenMd.trim() || href;
+            if (!href || href.startsWith('javascript:'))
+                return text;
+            return `[${text}](${href})`;
+        }
+        case 'ul':
+            return `\n\n${childrenMd}\n\n`;
+        case 'ol':
+            return `\n\n${childrenMd}\n\n`;
+        case 'li': {
+            const parentTag = node.parent && node.parent.name ? node.parent.name.toLowerCase() : '';
+            if (parentTag === 'ol') {
+                const lis = node.parent.children.filter((c) => c.name === 'li');
+                const idx = lis.indexOf(node) + 1;
+                return `${idx}. ${childrenMd.trim()}\n`;
+            }
+            return `- ${childrenMd.trim()}\n`;
+        }
+        case 'img': {
+            const src = node.attribs?.src || '';
+            const alt = node.attribs?.alt || 'Image';
+            return src ? `![${alt}](${src})` : '';
+        }
+        default:
+            return childrenMd;
     }
 }
 export const webExtractorService = new WebExtractorService();

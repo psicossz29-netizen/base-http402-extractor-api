@@ -8,7 +8,7 @@ export class BaseExtractorClient {
     privateKey;
     rpcUrl;
     constructor(config = {}) {
-        this.apiUrl = (config.apiUrl || 'https://era-asp-bring-southern.trycloudflare.com').replace(/\/$/, '');
+        this.apiUrl = (config.apiUrl || 'https://base-http402-extractor-api.zippy-license.workers.dev').replace(/\/$/, '');
         this.apiKey = config.apiKey;
         this.privateKey = config.privateKey;
         this.rpcUrl = config.rpcUrl || 'https://mainnet.base.org';
