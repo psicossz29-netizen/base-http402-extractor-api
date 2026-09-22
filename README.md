@@ -19,8 +19,8 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 * **Contrato USDC Nativo:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (6 decimales)
 * **Dirección Pública del Agente:**
   `0x2231b680679FC790B5E676b0d566EF2EE4612414`
-* **Playground Web Interactivo:** `https://era-asp-bring-southern.trycloudflare.com/playground`
-* **Endpoint de Producción Activo:** `https://era-asp-bring-southern.trycloudflare.com`
+* **Playground Web Interactivo:** `https://handy-spas-authority-yard.trycloudflare.com/playground`
+* **Endpoint de Producción Activo:** `https://handy-spas-authority-yard.trycloudflare.com`
 
 ---
 
