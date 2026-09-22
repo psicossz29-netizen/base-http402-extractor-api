@@ -1,0 +1,34 @@
+{
+  "schema_version": "v1",
+  "name": "base-http402-extractor-api",
+  "description": "Autonomous Web-to-Markdown extractor for LLM context with Base L2 HTTP 402 payments and credit tanks.",
+  "homepage": "https://base-http402-extractor-api.zippy-license.workers.dev",
+  "protocol": "mcp-stdio",
+  "server": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "base-http402-extractor-api"
+    ]
+  },
+  "payment": {
+    "protocol": "http-402",
+    "network": "Base Mainnet",
+    "chainId": 8453,
+    "token": "USDC",
+    "tokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "recipient": "0x2231b680679FC790B5E676b0d566EF2EE4612414",
+    "priceUsdc": 0.05
+  },
+  "tools": [
+    {
+      "name": "extract_clean_markdown",
+      "description": "Extracts clean, noise-free Markdown from any URL optimized for LLM context windows."
+    },
+    {
+      "name": "get_payment_info",
+      "description": "Returns pricing, recipient address on Base L2, and bulk tank tiers."
+    }
+  ]
+}

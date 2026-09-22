@@ -1,15 +1,7 @@
-# Smithery Server Configuration
-# https://smithery.ai/docs/config
-
+runtime: "node"
 startCommand:
-  type: stdio
-  config:
-    command: node
-    args:
-      - dist/mcp/server.js
-    env:
-      BASE_RPC_URL: https://mainnet.base.org
-      BASE_CHAIN_ID: "8453"
-      USDC_CONTRACT_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-      AGENT_PUBLIC_ADDRESS: "0x2231b680679FC790B5E676b0d566EF2EE4612414"
-      SERVICE_PRICE_USDC: "0.05"
+  type: "stdio"
+  command: "npx"
+  args: ["-y", "base-http402-extractor-api"]
+entrypoint: "dist/mcp/server.js"
+description: "Autonomous Web-to-Markdown extractor for LLM context with Base L2 HTTP 402 payments and credit tanks."

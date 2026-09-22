@@ -111,6 +111,52 @@ app.get('/openapi.yaml', (c) => {
   return c.text('openapi: 3.0.3\n', 200);
 });
 
+// Manifiesto de Autodescubrimiento M2M para rastreadores MCP
+app.get('/.well-known/mcp.json', (c) => {
+  return c.json({
+    schema_version: 'v1',
+    name: 'base-http402-extractor-api',
+    description: 'Autonomous Web-to-Markdown extractor for LLM context with Base L2 HTTP 402 payments and credit tanks.',
+    homepage: CONFIG.PUBLIC_URL,
+    protocol: 'mcp-stdio',
+    server: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'base-http402-extractor-api']
+    },
+    payment: {
+      protocol: 'http-402',
+      network: 'Base Mainnet',
+      chainId: CONFIG.BASE_CHAIN_ID,
+      token: 'USDC',
+      tokenAddress: CONFIG.USDC_CONTRACT_ADDRESS,
+      recipient: CONFIG.AGENT_PUBLIC_ADDRESS,
+      priceUsdc: CONFIG.SERVICE_PRICE_USDC,
+      tiers: [
+        { name: 'Starter Tank', usdc: 1.0, queries: 20 },
+        { name: 'Growth Tank', usdc: 5.0, queries: 110, bonus: 10 },
+        { name: 'Scale Tank', usdc: 10.0, queries: 250, bonus: 50 }
+      ]
+    },
+    tools: [
+      {
+        name: 'extract_clean_markdown',
+        description: 'Extracts clean, noise-free Markdown from any URL optimized for LLM context windows.',
+        parameters: {
+          url: { type: 'string', required: true },
+          paymentTxHash: { type: 'string', required: false },
+          apiKey: { type: 'string', required: false }
+        }
+      },
+      {
+        name: 'get_payment_info',
+        description: 'Returns pricing, recipient address on Base L2, and bulk tank tiers.',
+        parameters: {}
+      }
+    ]
+  });
+});
+
 // Especificación OpenAPI 3.0
 app.get('/openapi.json', (c) => {
   return c.json({

@@ -16,6 +16,7 @@
     "test:client": "tsx scripts/test_client.ts",
     "deploy": "wrangler deploy",
     "daemon": "tsx scripts/daemon_runner.ts",
+    "daemon:autonomous": "tsx scripts/autonomous_daemon.ts",
     "distribute": "tsx scripts/distribute.ts"
   },
   "bin": {
