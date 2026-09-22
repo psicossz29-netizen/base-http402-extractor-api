@@ -8,7 +8,9 @@
   "network": "Base Mainnet",
   "chainId": 8453,
   "usdcContract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-  "lastCheckedAt": "2026-09-22T04:25:00.827Z",
+  "lastCheckedAt": "2026-09-22T04:45:12.893Z",
   "remainingUsdcToTarget": 300,
-  "completionPercentage": "0.00%"
+  "completionPercentage": "0.00%",
+  "nextMilestone": 50,
+  "completedMilestones": []
 }
