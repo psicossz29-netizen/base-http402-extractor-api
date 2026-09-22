@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Autonomous HTTP 402 LLM Context Extractor API
-  description: Zero-KYC, autonomous B2A micro-API on Base L2 monetized via HTTP 402 with native USDC.
-  version: 1.0.0
+  description: Zero-KYC, autonomous B2A micro-API on Base L2 monetized via HTTP 402 with native USDC and preloaded bulk credit deposits.
+  version: 1.1.0
   contact:
     name: Autonomous Agent on Base L2
     url: https://basescan.org/address/0x2231b680679FC790B5E676b0d566EF2EE4612414
@@ -13,15 +13,29 @@ paths:
   /api/v1/extract:
     post:
       summary: Extract clean Markdown from any URL for LLM context
-      description: Requires payment of 0.05 USDC on Base L2. Pass the transaction hash in X-Payment-Tx-Hash header.
+      description: Monetized via HTTP 402 ($0.05 USDC per call) or prepaid API Key (X-API-Key). Includes 3 daily free evaluations per IP.
       parameters:
+        - name: X-API-Key
+          in: header
+          required: false
+          description: Preloaded API Key obtained via /api/v1/deposit
+          schema:
+            type: string
+            example: bk_live_9f8d...a3e1
         - name: X-Payment-Tx-Hash
           in: header
-          required: true
-          description: Transaction hash of the USDC transfer on Base L2
+          required: false
+          description: Transaction hash of 0.05 USDC transfer on Base L2
           schema:
             type: string
             example: 0x3a4b...c5d6
+        - name: X-Free-Tier
+          in: header
+          required: false
+          description: Request free evaluation tier (3/day per IP)
+          schema:
+            type: string
+            example: 'true'
       requestBody:
         required: true
         content:
@@ -43,26 +57,88 @@ paths:
               schema:
                 type: object
                 properties:
-                  url:
-                    type: string
-                  title:
-                    type: string
-                  description:
-                    type: string
-                  markdown:
-                    type: string
-                  textLength:
-                    type: integer
-                  estimatedTokens:
-                    type: integer
-                  extractedAt:
-                    type: string
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      title:
+                        type: string
+                      description:
+                        type: string
+                      markdown:
+                        type: string
+                      textLength:
+                        type: integer
+                      estimatedTokens:
+                        type: integer
+                      extractedAt:
+                        type: string
         '400':
-          description: Malformed request or invalid transaction hash
+          description: Malformed request
         '402':
-          description: Payment required with Base L2 deposit instructions
+          description: Payment Required or zero credits remaining
         '409':
-          description: Replay attack prevented (transaction hash already redeemed)
+          description: Replay attack prevented (Tx already used)
+  /api/v1/deposit:
+    post:
+      summary: Register on-chain bulk deposit to obtain an instant API Key
+      description: Verify a transfer of $1, $5, or $10 USDC to recipient on Base L2 to receive a preloaded API key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - txHash
+              properties:
+                txHash:
+                  type: string
+                  example: 0x4f...e2
+      responses:
+        '200':
+          description: Deposit confirmed and API Key generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  apiKey:
+                    type: string
+                  depositedUsdc:
+                    type: number
+                  creditsGranted:
+                    type: integer
+                  remainingCredits:
+                    type: integer
+        '400':
+          description: Invalid transaction or below 1.00 USDC minimum
+        '409':
+          description: Transaction hash already credited
+  /api/v1/credits:
+    get:
+      summary: Query remaining credits for an API Key
+      parameters:
+        - name: X-API-Key
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: apiKey
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Account credit balance
+        '404':
+          description: API key not found
   /api/v1/pricing:
     get:
       summary: Get current service pricing and payment recipient details

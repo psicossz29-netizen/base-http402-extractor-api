@@ -2,10 +2,14 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseEventLogs } from 'viem';
 import { CONFIG, validateConfig } from './config.js';
-import { paymentRequiredMiddleware } from './middleware/payment402.js';
+import { paymentRequiredMiddleware, createBasePublicClient, TRANSFER_EVENT_ABI } from './middleware/payment402.js';
 import { webExtractorService } from './services/extractor.js';
 import { defaultReplayStore } from './store/replayStore.js';
+import { defaultCreditStore } from './store/creditStore.js';
+import { renderPlaygroundHtml } from './views/playground.js';
+import { notifier } from './services/notifier.js';
 validateConfig();
 const app = new Hono();
 // Middleware de CORS simple para clientes web, bots y sincronización de Cloudflare Workers
@@ -18,19 +22,25 @@ app.use('*', async (c, next) => {
     }
     c.header('Access-Control-Allow-Origin', '*');
     c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    c.header('Access-Control-Allow-Headers', 'Content-Type, X-Payment-Tx-Hash');
+    c.header('Access-Control-Allow-Headers', 'Content-Type, X-Payment-Tx-Hash, X-API-Key, Authorization, X-Free-Tier');
+    c.header('Access-Control-Expose-Headers', 'X-Credits-Remaining, X-Free-Tier-Used, X-Free-Tier-Remaining, WWW-Authenticate');
     if (c.req.method === 'OPTIONS') {
         return c.body(null, 204);
     }
     await next();
 });
-// Endpoint Raíz: Overview e información para agentes
+// Endpoint Raíz: Overview e información para agentes (o Playground interactivo en navegador)
 app.get('/', (c) => {
+    const accept = c.req.header('Accept') || '';
+    if (accept.includes('text/html') && !accept.includes('application/json')) {
+        c.header('Content-Type', 'text/html; charset=utf-8');
+        return c.html(renderPlaygroundHtml());
+    }
     return c.json({
         service: 'Autonomous HTTP 402 Micro-API (Base L2)',
         description: 'Micropayment-monetized clean web-to-markdown extraction for AI agents and LLMs',
-        version: '1.0.0',
-        protocol: 'HTTP 402 Payment Required',
+        version: '1.1.0',
+        protocol: 'HTTP 402 Payment Required & Bulk Deposits',
         network: {
             name: 'Base Mainnet',
             chainId: CONFIG.BASE_CHAIN_ID,
@@ -40,24 +50,33 @@ app.get('/', (c) => {
         payment: {
             recipient: CONFIG.AGENT_PUBLIC_ADDRESS,
             priceUsdc: CONFIG.SERVICE_PRICE_USDC,
-            header: 'X-Payment-Tx-Hash'
+            header: 'X-Payment-Tx-Hash',
+            apiKeyHeader: 'X-API-Key'
         },
         publicUrl: CONFIG.PUBLIC_URL,
         endpoints: {
             extract: `${CONFIG.PUBLIC_URL}/api/v1/extract`,
+            deposit: `${CONFIG.PUBLIC_URL}/api/v1/deposit`,
+            credits: `${CONFIG.PUBLIC_URL}/api/v1/credits`,
+            playground: `${CONFIG.PUBLIC_URL}/playground`,
             pricing: `${CONFIG.PUBLIC_URL}/api/v1/pricing`,
             openapi: `${CONFIG.PUBLIC_URL}/openapi.json`,
             openapiYaml: `${CONFIG.PUBLIC_URL}/openapi.yaml`,
             llmsTxt: `${CONFIG.PUBLIC_URL}/llms.txt`,
             stats: `${CONFIG.PUBLIC_URL}/api/v1/stats`
         },
-        documentation: `See ${CONFIG.PUBLIC_URL}/openapi.json or ${CONFIG.PUBLIC_URL}/llms.txt for machine consumption`,
+        documentation: `See ${CONFIG.PUBLIC_URL}/playground for UI or ${CONFIG.PUBLIC_URL}/openapi.json for machine consumption`,
         goal: {
             targetUsdc: CONFIG.TARGET_USDC,
             totalProcessedCalls: defaultReplayStore.count(),
             grossRevenueUsdc: (defaultReplayStore.count() * CONFIG.SERVICE_PRICE_USDC).toFixed(2)
         }
     });
+});
+// Playground Web Interactivo
+app.get('/playground', (c) => {
+    c.header('Content-Type', 'text/html; charset=utf-8');
+    return c.html(renderPlaygroundHtml());
 });
 // Ficha de contexto para rastreadores LLM (llms.txt)
 app.get('/llms.txt', (c) => {
@@ -242,8 +261,151 @@ app.get('/api/v1/stats', (c) => {
         recentTransactions: transactions.slice(-10)
     });
 });
+// Endpoint de Depósito por Volumen (Generación Instantánea de API Key)
+app.post('/api/v1/deposit', async (c) => {
+    let body;
+    try {
+        body = await c.req.json();
+    }
+    catch {
+        return c.json({ error: 'Invalid JSON Body', message: 'Request body must be a valid JSON object with { txHash }.' }, 400);
+    }
+    const txHash = body.txHash?.trim();
+    if (!txHash) {
+        return c.json({ error: 'Missing Parameter', message: 'The "txHash" field is required.' }, 400);
+    }
+    const hashRegex = /^0x[a-fA-F0-9]{64}$/;
+    if (!hashRegex.test(txHash)) {
+        return c.json({
+            error: 'Invalid Payment Hash Format',
+            message: 'The provided transaction hash is malformed. Expected a 66-character 0x-prefixed hex string.'
+        }, 400);
+    }
+    const normalizedHash = txHash.toLowerCase();
+    // Inyectar KV si está disponible en Workers
+    if (c.env?.REPLAY_STORE && !defaultReplayStore.hasKV()) {
+        defaultReplayStore.setKV(c.env.REPLAY_STORE);
+    }
+    // Verificar si ya fue registrado en el replayStore
+    const isAvailable = await defaultReplayStore.reserveAsync(normalizedHash);
+    if (!isAvailable) {
+        const existing = await defaultReplayStore.getAsync(normalizedHash);
+        return c.json({
+            error: 'Transaction Already Processed',
+            message: 'This transaction hash has already been credited or is currently in flight.',
+            processedAt: existing?.timestamp
+        }, 409);
+    }
+    let isSuccess = false;
+    try {
+        const client = createBasePublicClient();
+        let receipt;
+        try {
+            receipt = await client.getTransactionReceipt({ hash: normalizedHash });
+        }
+        catch (err) {
+            return c.json({
+                error: 'Verification Failed',
+                message: `Transaction not found on Base L2: ${err.message || 'Unknown error'}`
+            }, 400);
+        }
+        if (!receipt || receipt.status !== 'success') {
+            return c.json({
+                error: 'Invalid Transaction',
+                message: `Transaction status is '${receipt?.status || 'not found'}'. Must be 'success'.`
+            }, 400);
+        }
+        let transferLogs;
+        try {
+            transferLogs = parseEventLogs({
+                abi: [TRANSFER_EVENT_ABI],
+                eventName: 'Transfer',
+                logs: receipt.logs
+            });
+        }
+        catch {
+            return c.json({ error: 'Event Parsing Error', message: 'Could not parse Transfer logs.' }, 400);
+        }
+        const tokenAddress = CONFIG.USDC_CONTRACT_ADDRESS.toLowerCase();
+        const recipient = CONFIG.AGENT_PUBLIC_ADDRESS.toLowerCase();
+        const validTransfers = transferLogs.filter((log) => {
+            const isUsdcContract = log.address.toLowerCase() === tokenAddress;
+            const isRecipient = log.args.to.toLowerCase() === recipient;
+            return isUsdcContract && isRecipient;
+        });
+        if (validTransfers.length === 0) {
+            return c.json({
+                error: 'No Matching Transfer',
+                message: `No USDC transfer to ${CONFIG.AGENT_PUBLIC_ADDRESS} was found in transaction ${txHash}.`
+            }, 400);
+        }
+        const totalAmount = validTransfers.reduce((acc, log) => acc + log.args.value, 0n);
+        const amountUsdc = Number(totalAmount) / 10 ** CONFIG.USDC_DECIMALS;
+        if (amountUsdc < 1.00) {
+            return c.json({
+                error: 'Deposit Below Minimum',
+                message: `Minimum deposit is 1.00 USDC. Received: $${amountUsdc.toFixed(2)} USDC.`,
+                receivedUsdc: amountUsdc
+            }, 400);
+        }
+        // Registrar en replayStore y creditStore
+        isSuccess = true;
+        const sender = validTransfers[0]?.args?.from;
+        defaultReplayStore.record({
+            txHash: normalizedHash,
+            sender,
+            recipient: CONFIG.AGENT_PUBLIC_ADDRESS,
+            amountUnits: totalAmount.toString(),
+            amountUsdc,
+            timestamp: Date.now(),
+            endpoint: '/api/v1/deposit',
+            blockNumber: receipt.blockNumber ? receipt.blockNumber.toString() : undefined
+        });
+        const account = defaultCreditStore.registerDeposit(normalizedHash, amountUsdc);
+        notifier.emitJobProcessed({
+            txHash: normalizedHash,
+            sender,
+            recipient: CONFIG.AGENT_PUBLIC_ADDRESS,
+            amountUsdc,
+            totalCallsProcessed: defaultReplayStore.count(),
+            grossRevenueUsdc: defaultReplayStore.count() * CONFIG.SERVICE_PRICE_USDC,
+            endpoint: '/api/v1/deposit'
+        });
+        return c.json({
+            success: true,
+            apiKey: account.apiKey,
+            depositedUsdc: amountUsdc,
+            creditsGranted: account.credits,
+            remainingCredits: account.credits,
+            usage: `Include 'X-API-Key: ${account.apiKey}' in POST /api/v1/extract`
+        });
+    }
+    finally {
+        if (!isSuccess) {
+            defaultReplayStore.release(normalizedHash);
+        }
+    }
+});
+// Endpoint de Consulta de Créditos
+app.get('/api/v1/credits', (c) => {
+    const apiKey = c.req.header('X-API-Key')?.trim() || c.req.query('apiKey')?.trim();
+    if (!apiKey) {
+        return c.json({ error: 'Missing API Key', message: 'Provide X-API-Key header or ?apiKey query parameter.' }, 400);
+    }
+    const account = defaultCreditStore.getAccount(apiKey);
+    if (!account) {
+        return c.json({ error: 'Not Found', message: 'API key not found.' }, 404);
+    }
+    return c.json({
+        apiKey: account.apiKey,
+        remainingCredits: account.remainingCredits,
+        initialUsdc: account.initialUsdc,
+        createdAt: new Date(account.createdAt).toISOString(),
+        lastUsedAt: new Date(account.lastUsedAt).toISOString()
+    });
+});
 // Endpoint Principal Monetizado: Extracción Web Limpia
-app.post('/api/v1/extract', paymentRequiredMiddleware(), async (c) => {
+app.post('/api/v1/extract', paymentRequiredMiddleware({ enableFreeTier: true, maxFreeTierCalls: 3 }), async (c) => {
     let body;
     try {
         body = await c.req.json();

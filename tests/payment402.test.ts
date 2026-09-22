@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { encodeEventTopics, toHex, type Address, type Hash, type TransactionReceipt } from 'viem';
 import { paymentRequiredMiddleware, TRANSFER_EVENT_ABI } from '../src/middleware/payment402.js';
 import { ReplayStore } from '../src/store/replayStore.js';
+import { CreditStore } from '../src/store/creditStore.js';
 import { WebExtractorService } from '../src/services/extractor.js';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -329,5 +330,126 @@ describe('Determinismo Local de Pagos HTTP 402 en Base L2', () => {
     expect(result.markdown).not.toContain('¡Compra ahora!');
     expect(result.markdown).not.toContain('Publicidad y enlaces irrelevantes');
     expect(result.estimatedTokens).toBeGreaterThan(10);
+  });
+
+  it('8. Petición con API Key válida -> Debe responder HTTP 200 OK y descontar crédito atómicamente', async () => {
+    const testCreditStore = new CreditStore(path.resolve(process.cwd(), 'data', 'test_credit_store.json'));
+    const { apiKey } = testCreditStore.registerDeposit('0x' + '1'.repeat(64), 1.0); // 20 créditos
+
+    const app = new Hono();
+    app.post(
+      '/api/v1/extract',
+      paymentRequiredMiddleware({
+        priceUsdc: 0.05,
+        recipient: TEST_RECIPIENT,
+        tokenAddress: TEST_USDC,
+        replayStore: testStore,
+        creditStore: testCreditStore
+      }),
+      (c) => c.json({ success: true, remaining: c.get('paymentInfo')?.remainingCredits })
+    );
+
+    const res = await app.request('/api/v1/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ url: 'https://example.com' })
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.remaining).toBe(19);
+    expect(res.headers.get('X-Credits-Remaining')).toBe('19');
+
+    // Limpieza
+    try {
+      fs.unlinkSync(path.resolve(process.cwd(), 'data', 'test_credit_store.json'));
+    } catch {}
+  });
+
+  it('9. Petición con API Key sin créditos -> Debe responder HTTP 402', async () => {
+    const testCreditStore = new CreditStore(path.resolve(process.cwd(), 'data', 'test_credit_store_empty.json'));
+    const { apiKey } = testCreditStore.registerDeposit('0x' + '2'.repeat(64), 0.05); // 1 crédito
+    testCreditStore.consumeCredit(apiKey); // Consumir el único crédito
+
+    const app = new Hono();
+    app.post(
+      '/api/v1/extract',
+      paymentRequiredMiddleware({
+        priceUsdc: 0.05,
+        recipient: TEST_RECIPIENT,
+        tokenAddress: TEST_USDC,
+        replayStore: testStore,
+        creditStore: testCreditStore
+      }),
+      (c) => c.json({ success: true })
+    );
+
+    const res = await app.request('/api/v1/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ url: 'https://example.com' })
+    });
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error).toBe('Insufficient Credits');
+
+    // Limpieza
+    try {
+      fs.unlinkSync(path.resolve(process.cwd(), 'data', 'test_credit_store_empty.json'));
+    } catch {}
+  });
+
+  it('10. Freemium Hook: Permite 3 llamadas de evaluación gratuita por IP y bloquea con 402 en la 4ta', async () => {
+    const testCreditStore = new CreditStore();
+    const app = new Hono();
+    app.post(
+      '/api/v1/extract',
+      paymentRequiredMiddleware({
+        priceUsdc: 0.05,
+        recipient: TEST_RECIPIENT,
+        tokenAddress: TEST_USDC,
+        replayStore: testStore,
+        creditStore: testCreditStore,
+        enableFreeTier: true,
+        maxFreeTierCalls: 3
+      }),
+      (c) => c.json({ success: true })
+    );
+
+    // Llamadas 1, 2, 3 deben responder 200
+    for (let i = 1; i <= 3; i++) {
+      const res = await app.request('/api/v1/extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'cf-connecting-ip': '203.0.113.195'
+        },
+        body: JSON.stringify({ url: 'https://example.com' })
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('X-Free-Tier-Used')).toBe('true');
+      expect(res.headers.get('X-Free-Tier-Remaining')).toBe((3 - i).toString());
+    }
+
+    // Llamada 4 debe responder 402
+    const res4 = await app.request('/api/v1/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'cf-connecting-ip': '203.0.113.195'
+      },
+      body: JSON.stringify({ url: 'https://example.com' })
+    });
+    expect(res4.status).toBe(402);
+    const body4 = await res4.json();
+    expect(body4.error).toBe('Payment Required');
   });
 });

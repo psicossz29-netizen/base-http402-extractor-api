@@ -1,29 +1,50 @@
 # Autonomous HTTP 402 Clean Markdown API (Base L2)
-> High-speed semantic web scraper converting any URL into clean, noise-free Markdown optimized for LLM context windows. Zero-KYC, autonomous micropayment protocol on Base L2.
+> High-speed semantic web scraper converting any URL into clean, noise-free Markdown optimized for LLM context windows. Zero-KYC, autonomous micropayment and credit deposit protocol on Base L2.
 
 ## Overview
 - Service Name: LLM Context Extractor & Clean Markdown API
-- Protocol: HTTP 402 Payment Required
+- Protocol: HTTP 402 Payment Required & Bulk Preloaded Credits
 - Network: Base Mainnet (Chain ID: 8453)
 - Settlement Token: USDC Native (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)
 - Payment Recipient Wallet: 0x2231b680679FC790B5E676b0d566EF2EE4612414
 - Cost per Query: $0.05 USDC (50,000 units, 6 decimals)
-- Production Base URL: https://base-http402-extractor-api.resilient-jaguar.workers.dev
-- OpenAPI 3.0 Specification: https://base-http402-extractor-api.resilient-jaguar.workers.dev/openapi.json
-- OpenAPI YAML Specification: https://base-http402-extractor-api.resilient-jaguar.workers.dev/openapi.yaml
+- Freemium Evaluation Tier: 3 free extractions per IP daily
+- Live Endpoint Base URL: https://era-asp-bring-southern.trycloudflare.com
+- Interactive Web Playground: https://era-asp-bring-southern.trycloudflare.com/playground
+- OpenAPI 3.0 Specification: https://era-asp-bring-southern.trycloudflare.com/openapi.json
+- OpenAPI YAML Specification: https://era-asp-bring-southern.trycloudflare.com/openapi.yaml
+
+## Bulk Credit Tiers (Zero Block-Time Latency)
+Instead of executing on-chain transfers per call, deposit once to receive an instant API Key:
+- Starter Tank: 1.00 USDC = 20 queries ($0.05/ea)
+- Growth Tank: 5.00 USDC = 110 queries (+10 bonus queries)
+- Scale Tank: 10.00 USDC = 250 queries (+50 bonus queries)
+Send USDC to 0x2231b680679FC790B5E676b0d566EF2EE4612414 on Base L2 and submit txHash to POST /api/v1/deposit to claim your API Key.
 
 ## Machine-to-Machine Integration Flow (B2A)
-1. Query https://base-http402-extractor-api.resilient-jaguar.workers.dev/api/v1/extract without payment header.
-2. Receive HTTP 402 status with exact payment JSON payload.
-3. Broadcast a 0.05 USDC transfer to 0x2231b680679FC790B5E676b0d566EF2EE4612414 on Base Mainnet.
-4. Resubmit request including the transaction hash in the 'X-Payment-Tx-Hash' HTTP header.
-5. Receive HTTP 200 OK with clean Markdown, title, description, and token count estimation.
+Option A (Instant API Key):
+1. Send $1, $5, or $10 USDC to recipient on Base L2.
+2. Call POST /api/v1/deposit with {"txHash": "0x..."} to obtain apiKey ("bk_live_...").
+3. Call POST /api/v1/extract with header 'X-API-Key: bk_live_...' for <50ms instant extractions.
+
+Option B (Per-Call HTTP 402 Micropayments):
+1. Query POST /api/v1/extract with {"url": "https://example.com"}.
+2. Receive HTTP 402 with recipient and payment instructions.
+3. Send 0.05 USDC to recipient on Base L2.
+4. Resubmit request with header 'X-Payment-Tx-Hash: 0x...'.
+
+Option C (Free Evaluation):
+1. Query POST /api/v1/extract with {"url": "https://example.com"} and header 'X-Free-Tier: true'.
+2. First 3 requests per IP daily succeed with HTTP 200 without payment.
 
 ## Endpoints
-- POST https://base-http402-extractor-api.resilient-jaguar.workers.dev/api/v1/extract: Extract clean markdown from URL (Requires X-Payment-Tx-Hash: 0x...)
-- GET https://base-http402-extractor-api.resilient-jaguar.workers.dev/api/v1/pricing: Current pricing and recipient address
-- GET https://base-http402-extractor-api.resilient-jaguar.workers.dev/api/v1/stats: Autonomous execution metrics and financial progress towards $300.00 USDC
-- GET https://base-http402-extractor-api.resilient-jaguar.workers.dev/openapi.json: Machine-readable OpenAPI 3.0.3 definition
+- POST /api/v1/extract: Extract clean markdown from URL (Auth: X-API-Key, X-Payment-Tx-Hash, or X-Free-Tier)
+- POST /api/v1/deposit: Submit on-chain deposit txHash to receive API Key
+- GET /api/v1/credits: Check remaining credits for an API Key
+- GET /playground: Interactive web tester and instant deposit interface
+- GET /api/v1/pricing: Current pricing, tiers, and recipient address
+- GET /api/v1/stats: Autonomous execution metrics and financial progress towards $300.00 USDC
+- GET /openapi.json: Machine-readable OpenAPI 3.0.3 definition
 
 ## Model Context Protocol (MCP) Tool Definition
 Users of Cursor, Claude Desktop, and agent frameworks can invoke this service directly as an MCP tool:

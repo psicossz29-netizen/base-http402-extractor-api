@@ -3,6 +3,7 @@ import { createPublicClient, http, fallback, parseAbiItem, parseEventLogs, type 
 import { base } from 'viem/chains';
 import { CONFIG } from '../config.js';
 import { defaultReplayStore, ReplayStore } from '../store/replayStore.js';
+import { defaultCreditStore, CreditStore } from '../store/creditStore.js';
 import { notifier } from '../services/notifier.js';
 
 export const TRANSFER_EVENT_ABI = parseAbiItem(
@@ -25,6 +26,9 @@ export interface PaymentOptions {
   chainId?: number;
   publicClient?: any;
   replayStore?: ReplayStore;
+  creditStore?: CreditStore;
+  enableFreeTier?: boolean;
+  maxFreeTierCalls?: number;
   minConfirmations?: number;
 }
 
@@ -51,14 +55,64 @@ export function paymentRequiredMiddleware(options: PaymentOptions = {}) {
   const tokenAddress = (options.tokenAddress ?? CONFIG.USDC_CONTRACT_ADDRESS) as Address;
   const chainId = options.chainId ?? CONFIG.BASE_CHAIN_ID;
   const replayStore = options.replayStore ?? defaultReplayStore;
+  const creditStore = options.creditStore ?? defaultCreditStore;
+  const enableFreeTier = options.enableFreeTier ?? false;
+  const maxFreeTierCalls = options.maxFreeTierCalls ?? 3;
   const decimals = CONFIG.USDC_DECIMALS;
   const requiredUnits = BigInt(Math.round(priceUsdc * 10 ** decimals));
 
   return async function (c: Context, next: Next) {
+    // 0. Autenticación vía API Key prepagada (X-API-Key o Bearer Token)
+    const authHeader = c.req.header('Authorization')?.trim();
+    const apiKeyHeader = c.req.header('X-API-Key')?.trim();
+    const apiKey = apiKeyHeader || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined);
+
+    if (apiKey) {
+      const { valid, remainingCredits } = creditStore.consumeCredit(apiKey);
+      if (valid) {
+        c.header('X-Credits-Remaining', remainingCredits.toString());
+        c.set('paymentInfo', {
+          type: 'credit',
+          apiKey,
+          remainingCredits
+        });
+        return await next();
+      } else {
+        return c.json(
+          {
+            error: 'Insufficient Credits',
+            message: 'API key is invalid or has 0 credits remaining. Please deposit USDC at /api/v1/deposit to replenish credits.',
+            remainingCredits
+          },
+          402
+        );
+      }
+    }
+
     const paymentTxHash = c.req.header('X-Payment-Tx-Hash')?.trim();
 
-    // 1. Si no existe la cabecera X-Payment-Tx-Hash -> Responder HTTP 402
+    // 1. Si no existe la cabecera X-Payment-Tx-Hash -> Evaluar Freemium o Responder HTTP 402
     if (!paymentTxHash) {
+      // Evaluar si califica para cuota gratuita de evaluación (3 llamadas diarias por IP)
+      const wantsFreeTier = enableFreeTier || c.req.header('X-Free-Tier') === 'true' || c.req.query('free') === 'true';
+      if (wantsFreeTier) {
+        const clientIp =
+          c.req.header('cf-connecting-ip') ||
+          c.req.header('x-forwarded-for')?.split(',')[0].trim() ||
+          '127.0.0.1';
+        const quota = creditStore.consumeFreeQuota(clientIp, maxFreeTierCalls);
+        if (quota.allowed) {
+          c.header('X-Free-Tier-Used', 'true');
+          c.header('X-Free-Tier-Remaining', quota.remaining.toString());
+          c.set('paymentInfo', {
+            type: 'free_tier',
+            clientIp,
+            remaining: quota.remaining
+          });
+          return await next();
+        }
+      }
+
       c.header('WWW-Authenticate', `MicroPayment realm="Base L2", token="USDC", amount="${priceUsdc}", recipient="${recipient}"`);
       return c.json(
         {
@@ -74,7 +128,20 @@ export function paymentRequiredMiddleware(options: PaymentOptions = {}) {
           priceUsdc,
           decimals,
           amountUnits: requiredUnits.toString(),
-          instructions: `Send at least ${priceUsdc} USDC on Base L2 to ${recipient} and include transaction hash in 'X-Payment-Tx-Hash' header.`
+          instructions: `Send at least ${priceUsdc} USDC on Base L2 to ${recipient} and include transaction hash in 'X-Payment-Tx-Hash' header, or deposit $1/$5/$10 USDC to obtain an instant API key.`,
+          bulkDeposits: {
+            endpoint: '/api/v1/deposit',
+            tiers: {
+              '1_usdc': '20 requests ($0.05/ea)',
+              '5_usdc': '110 requests (10 bonus credits)',
+              '10_usdc': '250 requests (50 bonus credits)'
+            },
+            authHeader: 'X-API-Key: bk_live_...'
+          },
+          freeTier: {
+            availableDaily: maxFreeTierCalls,
+            header: 'Pass query param ?free=true or header X-Free-Tier: true for evaluation sample'
+          }
         },
         402
       );

@@ -39,31 +39,52 @@ export async function runDistribution(): Promise<DistributionResult> {
   // -------------------------------------------------------------
   console.log('1️⃣  Generando ficha de rastreo para modelos de lenguaje (public/llms.txt)...');
   const llmsTxtContent = `# Autonomous HTTP 402 Clean Markdown API (Base L2)
-> High-speed semantic web scraper converting any URL into clean, noise-free Markdown optimized for LLM context windows. Zero-KYC, autonomous micropayment protocol on Base L2.
+> High-speed semantic web scraper converting any URL into clean, noise-free Markdown optimized for LLM context windows. Zero-KYC, autonomous micropayment and credit deposit protocol on Base L2.
 
 ## Overview
 - Service Name: LLM Context Extractor & Clean Markdown API
-- Protocol: HTTP 402 Payment Required
+- Protocol: HTTP 402 Payment Required & Bulk Preloaded Credits
 - Network: Base Mainnet (Chain ID: ${CONFIG.BASE_CHAIN_ID})
 - Settlement Token: USDC Native (${CONFIG.USDC_CONTRACT_ADDRESS})
 - Payment Recipient Wallet: ${CONFIG.AGENT_PUBLIC_ADDRESS}
 - Cost per Query: $${CONFIG.SERVICE_PRICE_USDC.toFixed(2)} USDC (50,000 units, 6 decimals)
-- Production Base URL: ${CONFIG.PUBLIC_URL}
+- Freemium Evaluation Tier: 3 free extractions per IP daily
+- Live Endpoint Base URL: ${CONFIG.PUBLIC_URL}
+- Interactive Web Playground: ${CONFIG.PUBLIC_URL}/playground
 - OpenAPI 3.0 Specification: ${CONFIG.PUBLIC_URL}/openapi.json
 - OpenAPI YAML Specification: ${CONFIG.PUBLIC_URL}/openapi.yaml
 
+## Bulk Credit Tiers (Zero Block-Time Latency)
+Instead of executing on-chain transfers per call, deposit once to receive an instant API Key:
+- Starter Tank: 1.00 USDC = 20 queries ($0.05/ea)
+- Growth Tank: 5.00 USDC = 110 queries (+10 bonus queries)
+- Scale Tank: 10.00 USDC = 250 queries (+50 bonus queries)
+Send USDC to ${CONFIG.AGENT_PUBLIC_ADDRESS} on Base L2 and submit txHash to POST /api/v1/deposit to claim your API Key.
+
 ## Machine-to-Machine Integration Flow (B2A)
-1. Query ${CONFIG.PUBLIC_URL}/api/v1/extract without payment header.
-2. Receive HTTP 402 status with exact payment JSON payload.
-3. Broadcast a 0.05 USDC transfer to ${CONFIG.AGENT_PUBLIC_ADDRESS} on Base Mainnet.
-4. Resubmit request including the transaction hash in the 'X-Payment-Tx-Hash' HTTP header.
-5. Receive HTTP 200 OK with clean Markdown, title, description, and token count estimation.
+Option A (Instant API Key):
+1. Send $1, $5, or $10 USDC to recipient on Base L2.
+2. Call POST /api/v1/deposit with {"txHash": "0x..."} to obtain apiKey ("bk_live_...").
+3. Call POST /api/v1/extract with header 'X-API-Key: bk_live_...' for <50ms instant extractions.
+
+Option B (Per-Call HTTP 402 Micropayments):
+1. Query POST /api/v1/extract with {"url": "https://example.com"}.
+2. Receive HTTP 402 with recipient and payment instructions.
+3. Send 0.05 USDC to recipient on Base L2.
+4. Resubmit request with header 'X-Payment-Tx-Hash: 0x...'.
+
+Option C (Free Evaluation):
+1. Query POST /api/v1/extract with {"url": "https://example.com"} and header 'X-Free-Tier: true'.
+2. First 3 requests per IP daily succeed with HTTP 200 without payment.
 
 ## Endpoints
-- POST ${CONFIG.PUBLIC_URL}/api/v1/extract: Extract clean markdown from URL (Requires X-Payment-Tx-Hash: 0x...)
-- GET ${CONFIG.PUBLIC_URL}/api/v1/pricing: Current pricing and recipient address
-- GET ${CONFIG.PUBLIC_URL}/api/v1/stats: Autonomous execution metrics and financial progress towards $${CONFIG.TARGET_USDC.toFixed(2)} USDC
-- GET ${CONFIG.PUBLIC_URL}/openapi.json: Machine-readable OpenAPI 3.0.3 definition
+- POST /api/v1/extract: Extract clean markdown from URL (Auth: X-API-Key, X-Payment-Tx-Hash, or X-Free-Tier)
+- POST /api/v1/deposit: Submit on-chain deposit txHash to receive API Key
+- GET /api/v1/credits: Check remaining credits for an API Key
+- GET /playground: Interactive web tester and instant deposit interface
+- GET /api/v1/pricing: Current pricing, tiers, and recipient address
+- GET /api/v1/stats: Autonomous execution metrics and financial progress towards $${CONFIG.TARGET_USDC.toFixed(2)} USDC
+- GET /openapi.json: Machine-readable OpenAPI 3.0.3 definition
 
 ## Model Context Protocol (MCP) Tool Definition
 Users of Cursor, Claude Desktop, and agent frameworks can invoke this service directly as an MCP tool:
@@ -84,8 +105,8 @@ Users of Cursor, Claude Desktop, and agent frameworks can invoke this service di
   const openApiYamlContent = `openapi: 3.0.3
 info:
   title: Autonomous HTTP 402 LLM Context Extractor API
-  description: Zero-KYC, autonomous B2A micro-API on Base L2 monetized via HTTP 402 with native USDC.
-  version: 1.0.0
+  description: Zero-KYC, autonomous B2A micro-API on Base L2 monetized via HTTP 402 with native USDC and preloaded bulk credit deposits.
+  version: 1.1.0
   contact:
     name: Autonomous Agent on Base L2
     url: https://basescan.org/address/${CONFIG.AGENT_PUBLIC_ADDRESS}
@@ -96,15 +117,29 @@ paths:
   /api/v1/extract:
     post:
       summary: Extract clean Markdown from any URL for LLM context
-      description: Requires payment of 0.05 USDC on Base L2. Pass the transaction hash in X-Payment-Tx-Hash header.
+      description: Monetized via HTTP 402 ($0.05 USDC per call) or prepaid API Key (X-API-Key). Includes 3 daily free evaluations per IP.
       parameters:
+        - name: X-API-Key
+          in: header
+          required: false
+          description: Preloaded API Key obtained via /api/v1/deposit
+          schema:
+            type: string
+            example: bk_live_9f8d...a3e1
         - name: X-Payment-Tx-Hash
           in: header
-          required: true
-          description: Transaction hash of the USDC transfer on Base L2
+          required: false
+          description: Transaction hash of 0.05 USDC transfer on Base L2
           schema:
             type: string
             example: 0x3a4b...c5d6
+        - name: X-Free-Tier
+          in: header
+          required: false
+          description: Request free evaluation tier (3/day per IP)
+          schema:
+            type: string
+            example: 'true'
       requestBody:
         required: true
         content:
@@ -126,26 +161,88 @@ paths:
               schema:
                 type: object
                 properties:
-                  url:
-                    type: string
-                  title:
-                    type: string
-                  description:
-                    type: string
-                  markdown:
-                    type: string
-                  textLength:
-                    type: integer
-                  estimatedTokens:
-                    type: integer
-                  extractedAt:
-                    type: string
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      title:
+                        type: string
+                      description:
+                        type: string
+                      markdown:
+                        type: string
+                      textLength:
+                        type: integer
+                      estimatedTokens:
+                        type: integer
+                      extractedAt:
+                        type: string
         '400':
-          description: Malformed request or invalid transaction hash
+          description: Malformed request
         '402':
-          description: Payment required with Base L2 deposit instructions
+          description: Payment Required or zero credits remaining
         '409':
-          description: Replay attack prevented (transaction hash already redeemed)
+          description: Replay attack prevented (Tx already used)
+  /api/v1/deposit:
+    post:
+      summary: Register on-chain bulk deposit to obtain an instant API Key
+      description: Verify a transfer of $1, $5, or $10 USDC to recipient on Base L2 to receive a preloaded API key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - txHash
+              properties:
+                txHash:
+                  type: string
+                  example: 0x4f...e2
+      responses:
+        '200':
+          description: Deposit confirmed and API Key generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  apiKey:
+                    type: string
+                  depositedUsdc:
+                    type: number
+                  creditsGranted:
+                    type: integer
+                  remainingCredits:
+                    type: integer
+        '400':
+          description: Invalid transaction or below 1.00 USDC minimum
+        '409':
+          description: Transaction hash already credited
+  /api/v1/credits:
+    get:
+      summary: Query remaining credits for an API Key
+      parameters:
+        - name: X-API-Key
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: apiKey
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Account credit balance
+        '404':
+          description: API key not found
   /api/v1/pricing:
     get:
       summary: Get current service pricing and payment recipient details

@@ -7,39 +7,59 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 ## 🎯 Resumen y Parámetros Operativos
 
 * **Meta Financiera:** Acumular **$300.00 USDC** netos en la billetera de control.
-* **Modelo Económico:** Micropago directo de **$0.05 USDC** por extracción limpia de contenido web (6,000 llamadas para alcanzar la meta).
+* **Modelos de Pago Flexibles:**
+  1. **Bulk Deposit Tanks (Recomendado):** Depósito por volumen en Base L2 con emisión instantánea de API Key (`X-API-Key`) para latencias <50ms sin esperar confirmación de bloques en cada consulta:
+     - 🥉 **Starter:** $1.00 USDC = 20 consultas ($0.05/ea)
+     - 🥈 **Growth:** $5.00 USDC = 110 consultas (+10 consultas bonus)
+     - 🥇 **Scale:** $10.00 USDC = 250 consultas (+50 consultas bonus)
+  2. **Micropago On-Chain 402:** $0.05 USDC por llamada usando la cabecera `X-Payment-Tx-Hash`.
+  3. **Freemium Hook:** 3 llamadas de evaluación gratuita por IP al día (`X-Free-Tier: true` o en el Playground) para probar la calidad del parseo sin fricción.
 * **Red:** Base Mainnet (Chain ID `8453`)
 * **RPC Primario:** `https://mainnet.base.org`
 * **Contrato USDC Nativo:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (6 decimales)
 * **Dirección Pública del Agente:**
   `0x2231b680679FC790B5E676b0d566EF2EE4612414`
-* **Nivel de Autonomía:** 100% desatendido, Cero KYC, Cero custodia humana. Identidad criptográfica `secp256k1` generada localmente con `viem`.
-* **Endpoint de Producción Permanente (Cloudflare Workers 24/7):**
-  `https://base-http402-extractor-api.resilient-jaguar.workers.dev`
+* **Playground Web Interactivo:** `https://era-asp-bring-southern.trycloudflare.com/playground`
+* **Endpoint de Producción Activo:** `https://era-asp-bring-southern.trycloudflare.com`
 
 ---
 
 ## 🚀 Arquitectura y Capacidades
 
-1. **Middleware HTTP 402 (`src/middleware/payment402.ts`):**
-   - Intercepta solicitudes entrantes y exige la cabecera `X-Payment-Tx-Hash`.
-   - Si no se provee pago, responde con código **402** y el payload exacto de instrucciones (monto, token, receptor, cadena).
-   - Valida en tiempo real con Viem que la transacción esté confirmada en Base L2, dirigida al agente y por el monto estipulado.
-   - **Prevención de Replay Attack (Doble Gasto):** Cada hash procesado se registra de forma persistente e inmutable en `data/replay_store.json`. Reintentos con el mismo hash devuelven **409 Conflict**.
+1. **Middleware HTTP 402 & Depósitos Prepagados (`src/middleware/payment402.ts`):**
+   - Autentica solicitudes vía `X-API-Key`, cabecera de micropago `X-Payment-Tx-Hash`, o evalúa la cuota freemium diaria (3/día por IP).
+   - Si no se provee pago, responde con código **402** y el payload de instrucciones (monto, token, receptor, cadena, y catálogo de depósitos por volumen).
+   - Valida en tiempo real con Viem que las transferencias estén confirmadas en Base L2, dirigidas al agente y sin doble gasto.
+   - **Prevención Anti-Replay:** Cada hash procesado se registra de forma inmutable en `data/replay_store.json`. Reintentos devuelven **409 Conflict**.
 
-2. **Servicio B2A: Clean Web-to-Markdown LLM Context Extractor (`src/services/extractor.ts`):**
-   - Descarga cualquier URL web, elimina el ruido DOM (scripts, estilos, anuncios, barras de navegación, cookies, modales).
+2. **Servicio B2A: Clean Web-to-Markdown Extractor (`src/services/extractor.ts`):**
+   - Descarga cualquier URL web, elimina ruido DOM (scripts, estilos, anuncios, barras de navegación, cookies, modales).
    - Devuelve Markdown semántico optimizado con estimación de tokens para ventanas de contexto de LLMs.
 
-3. **Dualidad de Consumo:**
-   - **API REST (Hono):**
-     - `GET /`: Overview, estado y URL pública configurada.
-     - `GET /openapi.json`: Especificación OpenAPI 3.0.3 sincronizada con `PUBLIC_URL`.
-     - `GET /api/v1/pricing`: Tarifas y datos de recepción.
-     - `GET /api/v1/stats`: Estado de ingresos y llamadas procesadas.
-     - `POST /api/v1/extract`: Extractor protegido por HTTP 402.
+3. **Cliente SDK Autónomo para Agentes de IA (`src/sdk/client.ts`):**
+   - Una línea de código en TypeScript:
+   ```ts
+   import { BaseExtractorClient } from './src/sdk/client.js';
+
+   // Modo API Key:
+   const client = new BaseExtractorClient({ apiKey: 'bk_live_...' });
+   const doc = await client.extract('https://example.com');
+   console.log(doc.markdown);
+
+   // Modo Autónomo Web3 (Auto-resuelve HTTP 402 on-chain):
+   const agent = new BaseExtractorClient({ privateKey: '0x...' });
+   const result = await agent.extract('https://example.com');
+   ```
+
+4. **Dualidad de Consumo y Endpoints:**
+   - **Playground Web (`GET /playground` / `GET /`):** Interfaz dark-mode para probar extracciones y reclamar API Keys ingresando el txHash de depósito.
+   - `POST /api/v1/deposit`: Valida txHash en Base L2 y entrega un API Key prepagado.
+   - `GET /api/v1/credits`: Consulta el saldo restante de una API Key.
+   - `POST /api/v1/extract`: Extractor web a Markdown protegido.
+   - `GET /api/v1/pricing`: Tarifas y tiers de depósito.
+   - `GET /api/v1/stats`: Estado de ingresos y progreso hacia $300.00 USDC.
    - **Servidor MCP (`src/mcp/server.ts`):**
-     - Integración directa para Cursor, Claude Desktop y orquestadores con las herramientas `get_payment_info` y `extract_clean_markdown`.
+     - Integración directa para Cursor, Claude Desktop y orquestadores (`extract_clean_markdown` y `get_payment_info`).
 
 4. **Vigilancia Financiera y Progreso (`src/monitor/balanceMonitor.ts`):**
    - Monitorea el balance de USDC en Base L2 y actualiza `progress.json`.

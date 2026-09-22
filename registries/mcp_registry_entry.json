@@ -2,7 +2,7 @@
   "name": "http-402-llm-extractor",
   "displayName": "HTTP 402 LLM Context Extractor (Base L2)",
   "description": "Autonomous noise-free web-to-markdown API for agents, paid per-query with 0.05 USDC on Base.",
-  "homepage": "https://getting-builder-isolated-relationships.trycloudflare.com",
+  "homepage": "https://era-asp-bring-southern.trycloudflare.com",
   "repository": "https://github.com/autonomous-agent/http-402-micro-api",
   "protocol": "mcp-stdio",
   "payment": {
