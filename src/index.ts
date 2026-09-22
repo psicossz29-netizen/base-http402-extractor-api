@@ -122,7 +122,7 @@ app.get('/.well-known/mcp.json', (c) => {
     server: {
       type: 'stdio',
       command: 'npx',
-      args: ['-y', 'base-http402-extractor-api']
+      args: ['-y', 'github:psicossz29-netizen/base-http402-extractor-api']
     },
     payment: {
       protocol: 'http-402',

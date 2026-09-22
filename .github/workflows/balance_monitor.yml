@@ -1,0 +1,55 @@
+﻿name: Base L2 USDC Balance Monitor & Milestone Tracker
+
+on:
+  schedule:
+    # Ejecución recurrente en la nube cada 20 minutos
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-balance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Query Base L2 USDC Balance
+        run: npm run monitor -- --once
+        env:
+          BASE_RPC_URL: 'https://mainnet.base.org'
+          BASE_CHAIN_ID: '8453'
+          USDC_CONTRACT_ADDRESS: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+          AGENT_PUBLIC_ADDRESS: '0x2231b680679FC790B5E676b0d566EF2EE4612414'
+          TARGET_USDC: '300.00'
+
+      - name: Commit and push progress updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add progress.json
+          if [ -f data/target_reached.json ]; then
+            git add -f data/target_reached.json
+          fi
+          
+          if ! git diff --cached --quiet; then
+            echo "Cambios detectados en balance o estado de meta. Guardando commit..."
+            git commit -m "chore(monitor): update Base L2 balance and progress towards \$300 USDC [skip ci]"
+            git push origin main
+          else
+            echo "Sin cambios en el balance on-chain de USDC. Commit omitido."
+          fi

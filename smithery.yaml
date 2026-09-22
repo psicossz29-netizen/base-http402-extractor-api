@@ -2,6 +2,6 @@ runtime: "node"
 startCommand:
   type: "stdio"
   command: "npx"
-  args: ["-y", "base-http402-extractor-api"]
+  args: ["-y", "github:psicossz29-netizen/base-http402-extractor-api"]
 entrypoint: "dist/mcp/server.js"
 description: "Autonomous Web-to-Markdown extractor for LLM context with Base L2 HTTP 402 payments and credit tanks."

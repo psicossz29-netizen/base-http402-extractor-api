@@ -71,7 +71,9 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 
 El microservicio expone un servidor **Model Context Protocol (MCP)** estándar vía Stdio (`base-http402-extractor-api`), permitiendo a asistentes de código y agentes LLM invocar la extracción semántica de páginas web y resolver el pago HTTP 402 directamente desde su interfaz de chat.
 
-### ⚡ 1-Click Config Snippets
+### ⚡ 1-Click Config Snippets (Conexión Directa GitHub / NPX)
+
+Puedes conectar el servidor directamente sin requerir publicación previa en npmjs usando el fallback nativo de GitHub: `github:psicossz29-netizen/base-http402-extractor-api` o el alias registrado `base-http402-extractor-api`.
 
 #### 1. Cursor IDE
 Crea o edita `.cursor/mcp.json` en la raíz de tu proyecto o añádelo en **Cursor Settings → Features → MCP Servers**:
@@ -81,7 +83,7 @@ Crea o edita `.cursor/mcp.json` en la raíz de tu proyecto o añádelo en **Curs
   "mcpServers": {
     "base-http402-extractor-api": {
       "command": "npx",
-      "args": ["-y", "base-http402-extractor-api"]
+      "args": ["-y", "github:psicossz29-netizen/base-http402-extractor-api"]
     }
   }
 }
@@ -97,7 +99,7 @@ Edita tu archivo de configuración `claude_desktop_config.json`:
   "mcpServers": {
     "base-http402-extractor-api": {
       "command": "npx",
-      "args": ["-y", "base-http402-extractor-api"]
+      "args": ["-y", "github:psicossz29-netizen/base-http402-extractor-api"]
     }
   }
 }
@@ -111,7 +113,7 @@ Añade el bloque de configuración a `~/.codeium/windsurf/mcp_config.json`:
   "mcpServers": {
     "base-http402-extractor-api": {
       "command": "npx",
-      "args": ["-y", "base-http402-extractor-api"]
+      "args": ["-y", "github:psicossz29-netizen/base-http402-extractor-api"]
     }
   }
 }

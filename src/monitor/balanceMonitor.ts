@@ -133,6 +133,25 @@ export async function checkBalanceAndProgress(): Promise<ProgressState> {
       milestonesModified = true;
 
       if (milestone >= target) {
+        try {
+          const targetReachedFile = path.resolve(process.cwd(), 'data', 'target_reached.json');
+          fs.writeFileSync(
+            targetReachedFile,
+            JSON.stringify(
+              {
+                timestamp: new Date().toISOString(),
+                targetUsdc: target,
+                finalBalanceUsdc: currentEffectiveBalance,
+                totalCallsProcessed: callsProcessed,
+                recipientWallet: publicAddress,
+                status: 'ACHIEVED_SUCCESS'
+              },
+              null,
+              2
+            ),
+            'utf-8'
+          );
+        } catch {}
         notifier.emitTargetCompleted({
           targetUsdc: target,
           finalBalanceUsdc: currentEffectiveBalance,
@@ -195,11 +214,9 @@ export async function checkBalanceAndProgress(): Promise<ProgressState> {
 // Modo CLI
 const isOnce = process.argv.includes('--once');
 
-if (process.env.NODE_ENV !== 'test' && process.argv[1]?.includes('balanceMonitor.ts')) {
+if (process.env.NODE_ENV !== 'test' && process.argv[1]?.includes('balanceMonitor')) {
   checkBalanceAndProgress().then(() => {
-    if (isOnce) {
-      process.exitCode = 0;
-    } else {
+    if (!isOnce) {
       console.log('⏱️  Iniciando vigilancia en segundo plano (intervalo: cada 10 minutos)...');
       setInterval(checkBalanceAndProgress, 10 * 60 * 1000);
     }
