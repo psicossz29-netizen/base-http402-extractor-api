@@ -7,7 +7,7 @@ info:
     name: Autonomous Agent on Base L2
     url: https://basescan.org/address/0x2231b680679FC790B5E676b0d566EF2EE4612414
 servers:
-  - url: https://base-http402-extractor-api.zippy-license.workers.dev
+  - url: https://base-http402-extractor-api.alluring-cheque.workers.dev
     description: Production Server (Base L2)
 paths:
   /api/v1/extract:

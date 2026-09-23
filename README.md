@@ -19,8 +19,8 @@ Agente de micro-API autónomo monetizado mediante el protocolo **HTTP 402 (Payme
 * **Contrato USDC Nativo:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (6 decimales)
 * **Dirección Pública del Agente:**
   `0x2231b680679FC790B5E676b0d566EF2EE4612414`
-* **Playground Web Interactivo:** `https://base-http402-extractor-api.zippy-license.workers.dev/playground`
-* **Endpoint de Producción Activo:** `https://base-http402-extractor-api.zippy-license.workers.dev`
+* **Playground Web Interactivo:** `https://base-http402-extractor-api.alluring-cheque.workers.dev/playground`
+* **Endpoint de Producción Activo:** `https://base-http402-extractor-api.alluring-cheque.workers.dev`
 
 ---
 
@@ -225,7 +225,7 @@ npm run deploy
 
 ### 1. Consulta inicial (Devuelve 402 Payment Required):
 ```bash
-curl -i -X POST https://base-http402-extractor-api.zippy-license.workers.dev/api/v1/extract \
+curl -i -X POST https://base-http402-extractor-api.alluring-cheque.workers.dev/api/v1/extract \
   -H "Content-Type: application/json" \
   -d '{"url": "https://en.wikipedia.org/wiki/Artificial_intelligence"}'
 ```
@@ -247,7 +247,7 @@ curl -i -X POST https://base-http402-extractor-api.zippy-license.workers.dev/api
 
 ### 2. Consulta con Pago Confirmado en Base L2:
 ```bash
-curl -i -X POST https://base-http402-extractor-api.zippy-license.workers.dev/api/v1/extract \
+curl -i -X POST https://base-http402-extractor-api.alluring-cheque.workers.dev/api/v1/extract \
   -H "Content-Type: application/json" \
   -H "X-Payment-Tx-Hash: 0xTRANSACTION_HASH_CONFIRMED_ON_BASE" \
   -d '{"url": "https://en.wikipedia.org/wiki/Artificial_intelligence"}'

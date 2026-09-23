@@ -9,10 +9,10 @@
 - Payment Recipient Wallet: 0x2231b680679FC790B5E676b0d566EF2EE4612414
 - Cost per Query: $0.05 USDC (50,000 units, 6 decimals)
 - Freemium Evaluation Tier: 3 free extractions per IP daily
-- Live Endpoint Base URL: https://base-http402-extractor-api.zippy-license.workers.dev
-- Interactive Web Playground: https://base-http402-extractor-api.zippy-license.workers.dev/playground
-- OpenAPI 3.0 Specification: https://base-http402-extractor-api.zippy-license.workers.dev/openapi.json
-- OpenAPI YAML Specification: https://base-http402-extractor-api.zippy-license.workers.dev/openapi.yaml
+- Live Endpoint Base URL: https://base-http402-extractor-api.alluring-cheque.workers.dev
+- Interactive Web Playground: https://base-http402-extractor-api.alluring-cheque.workers.dev/playground
+- OpenAPI 3.0 Specification: https://base-http402-extractor-api.alluring-cheque.workers.dev/openapi.json
+- OpenAPI YAML Specification: https://base-http402-extractor-api.alluring-cheque.workers.dev/openapi.yaml
 
 ## Bulk Credit Tiers (Zero Block-Time Latency)
 Instead of executing on-chain transfers per call, deposit once to receive an instant API Key:
