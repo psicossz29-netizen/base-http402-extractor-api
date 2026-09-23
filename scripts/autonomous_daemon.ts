@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { formatUnits, parseAbiItem, type Address } from 'viem';
 import { CONFIG } from '../src/config.js';
@@ -120,7 +120,18 @@ export async function runM2MDistribution(): Promise<void> {
   }
 }
 
+const isOnce = process.argv.includes('--once');
+
 export async function startAutonomousDaemon(): Promise<void> {
+  if (isOnce) {
+    logState('🔍 Ejecución puntual de verificación (--once)...');
+    const reached = await runWalletCheck();
+    if (reached) {
+      logState('🎯 Meta financiera alcanzada.');
+    }
+    return;
+  }
+
   logState('================================================================');
   logState('🚀 BUCLE AUTÓNOMO 24/7 DE SUPERVISIÓN Y META INICIADO (ZERO-HITL)');
   logState(`🎯 Meta: $${CONFIG.TARGET_USDC.toFixed(2)} USDC | Wallet: ${CONFIG.AGENT_PUBLIC_ADDRESS}`);
@@ -155,7 +166,7 @@ export async function startAutonomousDaemon(): Promise<void> {
   }, DISTRIBUTION_INTERVAL_MS);
 }
 
-if (process.env.NODE_ENV !== 'test' && process.argv[1]?.includes('autonomous_daemon.ts')) {
+if (process.env.NODE_ENV !== 'test' && (process.argv[1]?.includes('autonomous_daemon.ts') || process.argv[1]?.includes('autonomous_daemon.js'))) {
   startAutonomousDaemon().catch((err) => {
     logState(`❌ Error fatal en daemon supervisor: ${err.message}`);
   });
