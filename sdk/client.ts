@@ -181,9 +181,7 @@ export class BaseExtractorClient {
   }
 
   /**
-   * Extrae contenido web limpio en Markdown para LLMs y Agentes de IA.
-   * Maneja automáticamente la autenticación por API Key, la cuota Freemium,
-   * o la negociación autónoma de micropago HTTP 402 en Base L2.
+   * Método general de extracción: utiliza API key si está disponible o recurre a wallet si recibe 402.
    */
   public async extract(targetUrl: string): Promise<ExtractionResult> {
     if (this.apiKey) {
@@ -193,14 +191,13 @@ export class BaseExtractorClient {
       return this.extractWithWallet(targetUrl);
     }
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-Free-Tier': 'true'
-    };
-
+    // Intento con cuota freemium por defecto
     const res = await fetch(`${this.apiUrl}/api/v1/extract`, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Free-Tier': 'true'
+      },
       body: JSON.stringify({ url: targetUrl })
     });
 
@@ -215,8 +212,7 @@ export class BaseExtractorClient {
   }
 
   /**
-   * Realiza un depósito por volumen ($1, $5, $10 USDC) para obtener una API Key prepagada
-   * y eliminar la latencia de confirmación de bloques en peticiones subsecuentes.
+   * Realiza un depósito por volumen ($1, $5, $10 USDC) para obtener una API Key prepagada.
    */
   public async deposit(amountUsdc: number): Promise<{ apiKey: string; creditsGranted: number }> {
     if (!this.privateKey) {

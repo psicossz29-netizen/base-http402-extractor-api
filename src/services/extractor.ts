@@ -67,6 +67,8 @@ export function isPrivateOrReservedIp(ip: string): boolean {
   return false;
 }
 
+const cache = new Map<string, { result: ExtractionResult; expires: number }>();
+
 export class WebExtractorService {
   private turndown: TurndownService;
 
@@ -150,6 +152,12 @@ export class WebExtractorService {
     // Ejecutar validación de seguridad SSRF
     await this.validateUrlSecurity(parsedUrl);
 
+    // Edge cache: check if result is already cached (TTL 12h)
+    const cached = cache.get(targetUrl);
+    if (cached && cached.expires > Date.now()) {
+      return cached.result;
+    }
+
     // Petición HTTP con timeout estricto de 8s y limitación de payload de 5MB
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -211,7 +219,10 @@ export class WebExtractorService {
       clearTimeout(timeout);
     }
 
-    return this.parseHtmlToMarkdown(html, targetUrl);
+    const result = this.parseHtmlToMarkdown(html, targetUrl);
+    // Store in cache with 12-hour TTL
+    cache.set(targetUrl, { result, expires: Date.now() + 12 * 60 * 60 * 1000 });
+    return result;
   }
 
   public parseHtmlToMarkdown(html: string, originalUrl: string): ExtractionResult {
